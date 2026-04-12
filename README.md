@@ -1,70 +1,68 @@
-# Build This Project In VS Code With PlatformIO
+# O2 Analyzer Firmware
 
-This workspace has been converted from an Arduino `.ino` sketch to a PlatformIO project with a standard C++ entrypoint at `src/main.cpp`.
+Firmware for an Arduino-based nitrox / oxygen analyzer with a 128x64 SSD1306 OLED display, ADS1115 ADC, buzzer feedback, EEPROM-backed calibration, and a single-button interface.
 
-## 1. Install PlatformIO in VS Code
+This repository is set up as a PlatformIO project and currently targets an `Arduino Uno`.
 
-Install the recommended extension:
+## What It Does
 
-- `PlatformIO IDE`
+- Reads an oxygen sensor through an `ADS1115` differential input
+- Smooths readings with a running average
+- Displays the current O2 percentage on an OLED
+- Shows measured sensor output in millivolts
+- Calculates MOD values for the selected working `pO2`
+- Stores calibration data in EEPROM so it persists across reboots
+- Supports quick actions from one button:
+  - short press: lock screen
+  - hold ~2 seconds: calibrate
+  - hold ~3 seconds: cycle working `pO2` between `1.3`, `1.4`, and `1.5`
+  - hold ~4 seconds: clear max reading
 
-Or install the CLI separately if you prefer terminal-based builds:
+## Hardware Used
 
-```sh
-python3 -m pip install --user platformio
-```
+- Arduino Uno
+- SSD1306 OLED display (`128x64`, I2C, address `0x3C`)
+- ADS1115 ADC
+- Oxygen sensor wired to the ADS1115 differential input
+- Push button on pin `2`
+- Buzzer on pin `9`
 
-## 2. Open the folder in VS Code
+Important firmware constants are defined in [src/main.cpp](/Users/katherine/Downloads/o2-analyzer/src/main.cpp:27).
 
-Open this folder as the workspace root:
+## Build Setup
 
-```sh
-/Users/katherine/Downloads/o2_analyzer
-```
-
-## 3. Build the firmware
-
-Default environment in `platformio.ini`:
+Project configuration lives in [platformio.ini](/Users/katherine/Downloads/o2-analyzer/platformio.ini:1):
 
 ```ini
 [env:uno]
 platform = atmelavr
 board = uno
 framework = arduino
+monitor_speed = 9600
 ```
 
-In VS Code you can build with:
+Install PlatformIO in either of these ways:
 
-- `PlatformIO: Build`
-- `Terminal: Run Build Task`
+- VS Code extension: `PlatformIO IDE`
+- CLI: `python3 -m pip install --user platformio`
 
-Or from a terminal:
+## Build
+
+From the repo root:
 
 ```sh
 platformio run
 ```
 
-## 4. Upload the firmware
-
-Use:
-
-- `PlatformIO: Upload`
-
-Or from a terminal:
+## Upload
 
 ```sh
 platformio run --target upload
 ```
 
-## 5. Serial monitor
+If PlatformIO does not auto-detect the serial port on your machine, add `upload_port` in `platformio.ini`.
 
-The monitor speed is set to `9600` in `platformio.ini`.
-
-From VS Code:
-
-- `PlatformIO: Monitor`
-
-Or from a terminal:
+## Serial Monitor
 
 ```sh
 platformio device monitor --baud 9600
@@ -72,17 +70,33 @@ platformio device monitor --baud 9600
 
 ## Dependencies
 
-PlatformIO installs these automatically from `platformio.ini`:
+PlatformIO installs these libraries automatically:
 
 - `Adafruit GFX Library`
 - `Adafruit SSD1306`
 - `Adafruit ADS1X15`
 - `RunningAverage`
 
-`SPI`, `Wire`, and `EEPROM` come from the Arduino framework package for the selected board.
+Core Arduino libraries used by the firmware:
 
-## Notes
+- `SPI`
+- `Wire`
+- `EEPROM`
 
-- The project is currently configured for Arduino Uno because that was the last successful compile target.
-- If you switch boards later, update the `board` value in `platformio.ini`.
-- The old sketch file has been replaced by `src/main.cpp`, which required adding explicit forward declarations that Arduino normally generates automatically for `.ino` files.
+## Calibration Notes
+
+- Calibration is based on ambient air and uses `20.9%` as the reference value.
+- Calibration is saved to EEPROM with a validity marker.
+- If saved calibration data is missing or invalid, the firmware forces a fresh calibration during startup.
+
+## Project Origin
+
+The source header references ejlabs' OLED nitrox analyzer project:
+
+- http://ejlabs.net/arduino-oled-nitrox-analyzer
+
+This repo contains a PlatformIO-based C++ firmware entrypoint in [src/main.cpp](/Users/katherine/Downloads/o2-analyzer/src/main.cpp:1).
+
+## License
+
+This project is licensed under the GNU GPL v3. See [LICENSE](/Users/katherine/Downloads/o2-analyzer/LICENSE:1).
