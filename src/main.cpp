@@ -155,14 +155,16 @@ void setup(void) {
   display.clearDisplay();
   display.setTextColor(WHITE);
 
-  display.setCursor(31,6);
-  display.setTextSize(2);
+  display.setFont(&FreeSansBold18pt7b);
+  display.setTextSize(1);
+  display.setCursor(3,22);
   display.print(F("Nitrox"));
 
-  display.setCursor(18,26);
-  display.setTextSize(2);
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(9,40);
   display.print(F("Analyzer"));
 
+  display.setFont();
   display.setCursor(26,52);
   display.setTextSize(1);
   display.print(F(VERSION));
