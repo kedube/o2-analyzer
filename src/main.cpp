@@ -30,7 +30,7 @@
 #include <EEPROM.h>
 #include <RunningAverage.h>
 
-#define VERSION "Firmware 0.22"
+#define VERSION "    V0.22"
 
 constexpr uint8_t kCalibrationMagic = 0xA5;
 constexpr int kCalibrationAddress = 0;
@@ -155,14 +155,14 @@ void setup(void) {
   display.clearDisplay();
   display.setTextColor(WHITE);
 
-  display.setFont(&FreeSansBold18pt7b);
+  display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
   display.setCursor(3,22);
-  display.print(F("Nitrox"));
+  display.print(F("       Nitrox"));
 
   display.setFont(&FreeSans9pt7b);
   display.setCursor(9,40);
-  display.print(F("Analyzer"));
+  display.print(F("    Analyzer"));
 
   display.setFont();
   display.setCursor(26,52);
@@ -244,35 +244,44 @@ void analyze() {
      display.println(F("Sensor"));
      display.print(F("Error!"));
   } else {
-    display.setFont(&FreeSansBold18pt7b);
-    display.setTextSize(1);
-    display.setCursor(0,28);
-    display.print(result,1);
-    display.println(F("%"));
-    display.setFont();
+    int16_t topLineX = 0;
 
     if (result >= state.resultMax) {
       state.resultMax = result;
     }
 
+    display.setFont(&FreeSansBold18pt7b);
     display.setTextSize(1);
-    display.setCursor(0,31);
+    topLineX = 18;
+    if (result >= 10.0) {
+      topLineX = 8;
+    }
+    if (result >= 100.0) {
+      topLineX = 0;
+    }
+    display.setCursor(topLineX, 28);
+    display.print(result,1);
+    display.print(F("%"));
+    display.setFont();
+
+    display.setTextSize(1);
     display.setTextColor(BLACK, WHITE);
-    display.print(F("Max "));
+    display.setCursor(0,31);
+    display.print(F("   Max "));
     display.print(state.resultMax,1);
     display.print(F("%   "));
     display.print(mv,2);
     display.print(F("mv"));
 
     if (state.activeFrames % 4) {
-      display.setCursor(115,29);
+      display.setCursor(115,10);
       display.setTextColor(WHITE);
       display.print(F("."));
     }
 
     display.setTextColor(WHITE);
     display.setCursor(0,40);
-    display.print(F("pO2 "));
+    display.print(F("   pO2 "));
     display.print(state.maxPo1,1);
     display.print(F("/"));
     display.print(max_po2,1);
@@ -281,6 +290,7 @@ void analyze() {
     display.setFont(&FreeSans9pt7b);
     display.setTextSize(1);
     display.setCursor(0,63);
+    display.print(F(" "));
     display.print(cal_mod(result,state.maxPo1),1);
     display.print(F("/"));
     display.print(cal_mod(result,max_po2),1);
