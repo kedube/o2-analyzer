@@ -24,6 +24,8 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSansBold18pt7b.h>
 #include <Adafruit_ADS1X15.h>
 #include <EEPROM.h>
 #include <RunningAverage.h>
@@ -240,9 +242,12 @@ void analyze() {
      display.println(F("Sensor"));
      display.print(F("Error!"));
   } else {
-    display.setTextSize(4);
+    display.setFont(&FreeSansBold18pt7b);
+    display.setTextSize(1);
+    display.setCursor(0,28);
     display.print(result,1);
     display.println(F("%"));
+    display.setFont();
 
     if (result >= state.resultMax) {
       state.resultMax = result;
@@ -254,7 +259,6 @@ void analyze() {
     display.print(F("Max "));
     display.print(state.resultMax,1);
     display.print(F("%   "));
-    //display.setCursor(75,31);
     display.print(mv,2);
     display.print(F("mv"));
 
@@ -272,12 +276,14 @@ void analyze() {
     display.print(max_po2,1);
     display.print(F(" MOD"));
 
-    display.setTextSize(2);
-    display.setCursor(0,50);
+    display.setFont(&FreeSans9pt7b);
+    display.setTextSize(1);
+    display.setCursor(0,63);
     display.print(cal_mod(result,state.maxPo1),1);
     display.print(F("/"));
     display.print(cal_mod(result,max_po2),1);
     display.print(F("M "));
+    display.setFont();
 
     // Show menu labels only after the display has settled to reduce flicker.
     if (state.secsHeld < 5 && state.activeFrames > 16) {
