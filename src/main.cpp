@@ -49,6 +49,7 @@ constexpr unsigned long kUiRefreshIntervalMs = 200;
 constexpr unsigned long kStatusScreenMs = 1000;
 constexpr unsigned long kLockScreenMs = 5000;
 constexpr unsigned long kPausePollMs = 10;
+constexpr unsigned long kMsPerSecond = 1000;
 constexpr double kMinValidCalibration = 100.0;
 constexpr double kMaxValidCalibration = 32000.0;
 constexpr double kMinValidMillivolts = 0.02;
@@ -80,6 +81,7 @@ bool isCalibrationValid(double value);
 void pauseWithPolling(unsigned long durationMs);
 void readSensor();
 void analyze();
+void drawHoldMenuLabel(const __FlashStringHelper *label);
 
 RunningAverage RA(kRaSize);
 AnalyzerState state;
@@ -114,6 +116,20 @@ void readSensor() {
   int16_t millivolts = 0;
   millivolts = ads.readADC_Differential_0_1();
   RA.addValue(millivolts);
+}
+
+void drawHoldMenuLabel(const __FlashStringHelper *label) {
+  constexpr int kMenuX = 0;
+  constexpr int kMenuY = 31;
+  constexpr int kMenuWidth = 128;
+  constexpr int kMenuHeight = 16;
+  constexpr int kLabelX = 46;
+
+  display.fillRect(kMenuX, kMenuY, kMenuWidth, kMenuHeight, WHITE);
+  display.setTextSize(2);
+  display.setTextColor(BLACK, WHITE);
+  display.setCursor(kLabelX, kMenuY);
+  display.print(label);
 }
 
 bool isCalibrationValid(double value) {
@@ -193,9 +209,10 @@ int calibrate() {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(0,0);
-  display.setTextSize(2);
-  display.print(F("Calibrate"));
+  display.setCursor(0,30);
+  display.setFont(&FreeSans9pt7b);
+  display.setTextSize(1);
+  display.print(F("     Calibrate"));
   display.display();
 
   RA.clear();
@@ -240,9 +257,10 @@ void analyze() {
   display.setCursor(0,0);
 
   if (mv < 0.02 || result <= 0) {
-     display.setTextSize(2);
-     display.println(F("Sensor"));
-     display.print(F("Error!"));
+    display.setFont(&FreeSans9pt7b);
+     display.setTextSize(1);
+     display.println(F("    Sensor"));
+     display.print(F("      Error!"));
   } else {
     int16_t topLineX = 0;
 
@@ -271,7 +289,7 @@ void analyze() {
     display.print(state.resultMax,1);
     display.print(F("%   "));
     display.print(mv,2);
-    display.print(F("mv"));
+    display.print(F("mv "));
 
     if (state.activeFrames % 4) {
       display.setCursor(115,10);
@@ -285,7 +303,7 @@ void analyze() {
     display.print(state.maxPo1,1);
     display.print(F("/"));
     display.print(max_po2,1);
-    display.print(F(" MOD"));
+    display.print(F(" MOD   "));
 
     display.setFont(&FreeSans9pt7b);
     display.setTextSize(1);
@@ -298,18 +316,16 @@ void analyze() {
     display.setFont();
 
     // Show menu labels only after the display has settled to reduce flicker.
-    if (state.secsHeld < 5 && state.activeFrames > 16) {
-      display.setTextSize(2);
-      display.setCursor(0,31);
-      display.setTextColor(BLACK, WHITE);
-      if (state.secsHeld >= kCalHoldTimeSeconds && state.secsHeld < kModHoldTimeSeconds) {
-        display.print(F("   CAL    "));
-      }
-      if (state.secsHeld >= kModHoldTimeSeconds && state.secsHeld < kMaxHoldTimeSeconds) {
-        display.print(F("   PO2    "));
-      }
-      if (state.secsHeld >= kMaxHoldTimeSeconds && state.secsHeld < 10) {
-        display.print(F("   MAX    "));
+    if (state.millisHeld < (kMaxHoldTimeSeconds + 1) * kMsPerSecond && state.activeFrames > 16) {
+      if (state.millisHeld >= kCalHoldTimeSeconds * kMsPerSecond &&
+          state.millisHeld < kModHoldTimeSeconds * kMsPerSecond) {
+        drawHoldMenuLabel(F("CAL"));
+      } else if (state.millisHeld >= kModHoldTimeSeconds * kMsPerSecond &&
+          state.millisHeld < kMaxHoldTimeSeconds * kMsPerSecond) {
+        drawHoldMenuLabel(F("PO2"));
+      } else if (state.millisHeld >= kMaxHoldTimeSeconds * kMsPerSecond &&
+          state.millisHeld < 10 * kMsPerSecond) {
+        drawHoldMenuLabel(F("MAX"));
       }
     }
 
@@ -345,9 +361,10 @@ void po2_change() {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(0,0);
-  display.setTextSize(2);
-  display.print(F("pO2: "));
+  display.setCursor(0,30);
+  display.setFont(&FreeSans9pt7b);
+  display.setTextSize(1);
+  display.print(F("     pO2: "));
   display.print(state.maxPo1);
   display.display();
   beep(1);
@@ -359,10 +376,11 @@ void max_clear() {
   state.resultMax = 0;
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(0,0);
-  display.setTextSize(2);
-  display.println(F("Max result"));
-  display.print(F("cleared"));
+  display.setCursor(0,22);
+  display.setFont(&FreeSans9pt7b);
+  display.setTextSize(1);
+  display.println(F("    Max Result"));
+  display.print(F("       Cleared"));
   display.display();
   beep(1);
   pauseWithPolling(kStatusScreenMs);
@@ -383,16 +401,19 @@ void loop(void) {
 
   if (state.millisHeld > 2) {
     if (current == HIGH && state.previousButtonState == LOW) {
-      if (state.secsHeld <= 0) {
+      if (state.millisHeld < kCalHoldTimeSeconds * kMsPerSecond) {
         lock_screen();
       }
-      if (state.secsHeld >= kCalHoldTimeSeconds && state.secsHeld < kModHoldTimeSeconds) {
+      if (state.millisHeld >= kCalHoldTimeSeconds * kMsPerSecond &&
+          state.millisHeld < kModHoldTimeSeconds * kMsPerSecond) {
         state.calibrationValue = calibrate();
       }
-      if (state.secsHeld >= kModHoldTimeSeconds && state.secsHeld < kMaxHoldTimeSeconds) {
+      if (state.millisHeld >= kModHoldTimeSeconds * kMsPerSecond &&
+          state.millisHeld < kMaxHoldTimeSeconds * kMsPerSecond) {
         po2_change();
       }
-      if (state.secsHeld >= kMaxHoldTimeSeconds && state.secsHeld < 10) {
+      if (state.millisHeld >= kMaxHoldTimeSeconds * kMsPerSecond &&
+          state.millisHeld < 10 * kMsPerSecond) {
         max_clear();
       }
     }
