@@ -30,7 +30,7 @@
 #include <EEPROM.h>
 #include <RunningAverage.h>
 
-#define VERSION "    V0.22"
+#define VERSION "V0.23"
 
 constexpr uint8_t kCalibrationMagic = 0xA5;
 constexpr int kCalibrationAddress = 0;
@@ -46,7 +46,7 @@ constexpr unsigned long kModHoldTimeSeconds = 3;
 constexpr unsigned long kMaxHoldTimeSeconds = 4;
 constexpr unsigned long kButtonDebounceMs = 200;
 constexpr unsigned long kUiRefreshIntervalMs = 200;
-constexpr unsigned long kStatusScreenMs = 1000;
+constexpr unsigned long kStatusScreenMs = 2000;
 constexpr unsigned long kLockScreenMs = 5000;
 constexpr unsigned long kPausePollMs = 10;
 constexpr unsigned long kMsPerSecond = 1000;
@@ -173,15 +173,15 @@ void setup(void) {
 
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
-  display.setCursor(3,22);
-  display.print(F("       Nitrox"));
+  display.setCursor(45,22);
+  display.print(F("Nitrox"));
 
   display.setFont(&FreeSans9pt7b);
-  display.setCursor(9,40);
-  display.print(F("    Analyzer"));
+  display.setCursor(32,40);
+  display.print(F("Analyzer"));
 
   display.setFont();
-  display.setCursor(26,52);
+  display.setCursor(51,52);
   display.setTextSize(1);
   display.print(F(VERSION));
   display.display();
@@ -209,10 +209,10 @@ int calibrate() {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(0,30);
+  display.setCursor(30,30);
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
-  display.print(F("     Calibrate"));
+  display.print(F("Calibrate"));
   display.display();
 
   RA.clear();
@@ -254,13 +254,13 @@ void analyze() {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(0,0);
+  display.setCursor(30,0);
 
   if (mv < 0.02 || result <= 0) {
     display.setFont(&FreeSans9pt7b);
      display.setTextSize(1);
-     display.println(F("    Sensor"));
-     display.print(F("      Error!"));
+     display.println(F("Sensor"));
+     display.print(F("Error!"));
   } else {
     int16_t topLineX = 0;
 
@@ -285,11 +285,11 @@ void analyze() {
     display.setTextSize(1);
     display.setTextColor(BLACK, WHITE);
     display.setCursor(0,31);
-    display.print(F("   Max "));
+    display.print(F("  Max "));
     display.print(state.resultMax,1);
     display.print(F("%   "));
     display.print(mv,2);
-    display.print(F("mv "));
+    display.print(F("mv  "));
 
     if (state.activeFrames % 4) {
       display.setCursor(115,10);
@@ -298,16 +298,16 @@ void analyze() {
     }
 
     display.setTextColor(WHITE);
-    display.setCursor(0,40);
-    display.print(F("   pO2 "));
+    display.setCursor(21,40);
+    display.print(F("pO2 "));
     display.print(state.maxPo1,1);
     display.print(F("/"));
     display.print(max_po2,1);
-    display.print(F(" MOD   "));
+    display.print(F(" MOD"));
 
     display.setFont(&FreeSans9pt7b);
     display.setTextSize(1);
-    display.setCursor(0,63);
+    display.setCursor(3,63);
     display.print(F(" "));
     display.print(cal_mod(result,state.maxPo1),1);
     display.print(F("/"));
@@ -338,10 +338,10 @@ void lock_screen(unsigned long pause = kLockScreenMs) {
   display.setTextSize(1);
   display.setCursor(0,31);
   display.setTextColor(0xFFFF, 0);
-  display.print(F("                "));
+  display.print(F("                 "));
   display.setTextColor(BLACK, WHITE);
   display.setCursor(0,31);
-  display.print(F("======= LOCK ======="));
+  display.print(F("====== LOCKED ======="));
   display.display();
   const unsigned long startMs = millis();
   while ((millis() - startMs) < pause) {
@@ -361,10 +361,10 @@ void po2_change() {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(0,30);
+  display.setCursor(24,30);
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
-  display.print(F("     pO2: "));
+  display.print(F("pO2: "));
   display.print(state.maxPo1);
   display.display();
   beep(1);
@@ -376,11 +376,12 @@ void max_clear() {
   state.resultMax = 0;
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(0,22);
+  display.setCursor(21,22);
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
-  display.println(F("    Max Result"));
-  display.print(F("       Cleared"));
+  display.print(F("Max Result"));
+  display.setCursor(33,47);
+  display.print(F("Cleared"));
   display.display();
   beep(1);
   pauseWithPolling(kStatusScreenMs);
