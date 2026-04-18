@@ -16,6 +16,8 @@ constexpr uint8_t kScreenAddress = 0x3C;
 
 constexpr uint8_t kButtonPin = 2;
 constexpr uint8_t kBuzzerPin = 9;
+constexpr unsigned long kSerialBaudRate = 9600;
+constexpr char kScreenshotCommand = 's';
 
 constexpr unsigned long kCalHoldTimeSeconds = 2;
 constexpr unsigned long kModHoldTimeSeconds = 3;

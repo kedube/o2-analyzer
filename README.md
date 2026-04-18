@@ -14,6 +14,13 @@ This firmware accompanies the OLED-modified Divetech nitrox analyzer enclosure p
 
 ![O2 analyzer alternate assembly view](images/nitrox_analyzer-4.jpeg)
 
+## OLED Screenshots
+
+| 1 | 2 | 3 | 4 |
+| --- | --- | --- | --- |
+| ![OLED screenshot 1](images/oled_screenshot_1.png) | ![OLED screenshot 2](images/oled_screenshot_2.png) | ![OLED screenshot 3](images/oled_screenshot_3.png) | ![OLED screenshot 4](images/oled_screenshot_4.png) |
+| ![OLED screenshot 5](images/oled_screenshot_5.png) | ![OLED screenshot 6](images/oled_screenshot_6.png) | ![OLED screenshot 7](images/oled_screenshot_7.png) | ![OLED screenshot 8](images/oled_screenshot_8.png) |
+
 The current project target is an Arduino Nano ATmega328P with the new bootloader configuration.
 
 ## Features
@@ -78,6 +85,8 @@ o2-analyzer/
 ├── README.md
 ├── RELEASE_NOTES_0.25.md
 ├── platformio.ini
+├── tools/
+│   └── oled_capture.py
 ├── images/
 │   ├── nitrox_analyzer-1.jpeg
 │   ├── nitrox_analyzer-2.jpeg
@@ -96,6 +105,7 @@ o2-analyzer/
 - [include/FreeSansBold18pt7bSubset.h](include/FreeSansBold18pt7bSubset.h): subset large percentage font
 - [include/settings.h](include/settings.h): firmware configuration constants for pins, timings, display settings, and calibration defaults
 - [platformio.ini](platformio.ini): PlatformIO target, libraries, and build flags
+- [tools/oled_capture.py](tools/oled_capture.py): converts a captured SSD1306 framebuffer dump into a PNG image
 
 ## Build Configuration
 
@@ -192,6 +202,8 @@ Hardware and behavior settings are defined in [include/settings.h](include/setti
 - `kScreenAddress`: I2C address for the SSD1306 display. Default: `0x3C`.
 - `kButtonPin`: button input pin. Default: `2`.
 - `kBuzzerPin`: buzzer output pin. Default: `9`.
+- `kSerialBaudRate`: serial monitor and screenshot capture baud rate. Default: `9600`.
+- `kScreenshotCommand`: serial command character used to request a display dump. Default: `s`.
 - `kOledReset`: OLED reset pin passed to the display driver. Default: `4`.
 - `kRaSize`: moving-average sample window for sensor smoothing. Default: `20`.
 - `kCalHoldTimeSeconds`: hold time to trigger calibration. Default: `2` seconds.
@@ -227,6 +239,39 @@ If PlatformIO does not auto-detect the serial port on your machine, add `upload_
 ```sh
 platformio device monitor --baud 9600
 ```
+
+## Display Screenshot Utility
+
+The repository includes [tools/oled_capture.py](tools/oled_capture.py), a small host-side utility that converts a `128x64` Adafruit SSD1306 framebuffer dump into a PNG.
+
+It accepts any of these inputs:
+
+- A raw `1024`-byte framebuffer file in Adafruit SSD1306 page order.
+- An ASCII hex dump containing the same `1024` bytes.
+- A serial frame with the header `OLED_FRAME 128 64` followed by `1024` raw bytes.
+
+The firmware supports live screenshot capture over USB serial. It listens at `9600` baud and sends the current OLED framebuffer when it receives the `s` command.
+
+Convert a saved raw framebuffer dump into a PNG:
+
+```sh
+python3 tools/oled_capture.py oled-frame.bin --output oled-screenshot.png
+```
+
+Convert a hex dump into a larger image:
+
+```sh
+python3 tools/oled_capture.py oled-frame.txt --format hex --scale 6 --output oled-screenshot.png
+```
+
+Capture a live screenshot directly from the analyzer:
+
+```sh
+python3 -m pip install pyserial
+python3 tools/oled_capture.py --serial /dev/tty.usbserial-0001 --output oled-screenshot.png
+```
+
+The script sends `s` automatically before waiting for the frame. If you change the firmware command character, pass the new value with `--command`.
 
 ## Dependencies
 

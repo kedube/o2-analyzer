@@ -108,6 +108,8 @@ void analyze();
 void drawHoldMenuLabel(const char *label);
 void invalidateDisplaySnapshot();
 void drawCenteredText(const char *text, int16_t baselineY);
+void handleSerialCommands();
+void dumpDisplayBuffer();
 int16_t roundToTenths(float value);
 int16_t roundToHundredths(float value);
 uint8_t currentHoldMenu();
@@ -144,7 +146,29 @@ void beep(int x=1) { // make beep for x time
 void pauseWithPolling(unsigned long durationMs) {
   const unsigned long startMs = millis();
   while ((millis() - startMs) < durationMs) {
+    handleSerialCommands();
     delay(kPausePollMs);
+  }
+}
+
+void dumpDisplayBuffer() {
+  const uint8_t *buffer = display.getBuffer();
+  const size_t bufferSize = static_cast<size_t>(kScreenWidth) * static_cast<size_t>(kScreenHeight) / 8U;
+
+  Serial.print(F("OLED_FRAME "));
+  Serial.print(kScreenWidth);
+  Serial.print(' ');
+  Serial.println(kScreenHeight);
+  Serial.write(buffer, bufferSize);
+  Serial.flush();
+}
+
+void handleSerialCommands() {
+  while (Serial.available() > 0) {
+    const int input = Serial.read();
+    if (input == kScreenshotCommand || input == 'S') {
+      dumpDisplayBuffer();
+    }
   }
 }
 
@@ -314,6 +338,8 @@ bool readCalibration(float &value) {
 }
 
 void setup(void) {
+  Serial.begin(kSerialBaudRate);
+
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, kScreenAddress)) {
     for(;;); // Don't proceed, loop forever
@@ -566,6 +592,8 @@ void max_clear() {
 }
 
 void loop(void) {
+  handleSerialCommands();
+
   const unsigned long now = millis();
   int current = digitalRead(kButtonPin);
 
