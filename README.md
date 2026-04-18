@@ -33,6 +33,10 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 - Push button on digital pin `2`
 - Buzzer on digital pin `9`
 
+3D-printable enclosure files are available on Printables:
+
+- [OLED modification for Divetech nitrox analyzer](https://www.printables.com/model/554448-oled-modification-for-divetech-nitrox-analyzer)
+
 ## Button Actions
 
 - Tap: lock screen
@@ -93,6 +97,40 @@ Install PlatformIO with either the VS Code PlatformIO extension or the CLI:
 ```sh
 python3 -m pip install --user platformio
 ```
+
+## Visual Studio Code Setup
+
+To clone and build this firmware from Visual Studio Code:
+
+1. Install [Visual Studio Code](https://code.visualstudio.com/).
+2. Install the following extensions from the VS Code marketplace:
+  - [PlatformIO IDE](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide) for dependency management, building, uploading, and serial monitoring.
+  - [C/C++](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) for code navigation and IntelliSense.
+3. Ensure `git` is installed on your machine.
+4. Open the VS Code Command Palette and run `Git: Clone`.
+5. Paste the repository URL and choose a local folder.
+6. Open the cloned `o2-analyzer` folder in VS Code.
+7. Wait for PlatformIO to finish initializing the project and installing toolchains and libraries.
+
+You can also clone from a terminal:
+
+```sh
+git clone <repository-url>
+cd o2-analyzer
+code .
+```
+
+### Build In VS Code
+
+After the folder is open in VS Code:
+
+1. Click the PlatformIO alien-head icon in the Activity Bar.
+2. Under `PROJECT TASKS` > `nano`, run `Build`.
+3. Connect the Arduino Nano over USB.
+4. Run `Upload` to flash the firmware.
+5. Run `Monitor` to open the serial console at `9600` baud.
+
+PlatformIO uses the default `nano` environment defined in [platformio.ini](platformio.ini).
 
 ## Build
 
