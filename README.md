@@ -59,7 +59,8 @@ o2-analyzer/
 │   └── nitrox_analyzer-4.jpeg
 ├── include/
 │   ├── FreeSans9pt7bSubset.h
-│   └── FreeSansBold18pt7bSubset.h
+│   ├── FreeSansBold18pt7bSubset.h
+│   └── settings.h
 └── src/
   └── main.cpp
 ```
@@ -67,6 +68,7 @@ o2-analyzer/
 - [src/main.cpp](src/main.cpp): firmware logic, UI rendering, button handling, calibration, and sensor processing
 - [include/FreeSans9pt7bSubset.h](include/FreeSans9pt7bSubset.h): subset small UI font
 - [include/FreeSansBold18pt7bSubset.h](include/FreeSansBold18pt7bSubset.h): subset large percentage font
+- [include/settings.h](include/settings.h): firmware configuration constants for pins, timings, display settings, and calibration defaults
 - [platformio.ini](platformio.ini): PlatformIO target, libraries, and build flags
 
 ## Build Configuration
@@ -131,6 +133,52 @@ After the folder is open in VS Code:
 5. Run `Monitor` to open the serial console at `9600` baud.
 
 PlatformIO uses the default `nano` environment defined in [platformio.ini](platformio.ini).
+
+## Configuration Options
+
+This project has two main configuration layers: PlatformIO project settings in [platformio.ini](platformio.ini) and firmware settings in [include/settings.h](include/settings.h).
+
+### PlatformIO Options
+
+Common options you may want to change in [platformio.ini](platformio.ini):
+
+- `default_envs`: selects the default build target. The current default is `nano`.
+- `board`: selects the Arduino board definition. The current board is `nanoatmega328new`.
+- `monitor_speed`: sets the serial monitor baud rate. The firmware uses `9600`.
+- `upload_speed`: sets the upload baud rate. The current value is `115200`.
+- `upload_port`: optional manual serial port override if auto-detection fails.
+- `build_flags`: compile-time defines passed to the build. `SSD1306_NO_SPLASH` is enabled to save flash.
+- `lib_deps`: PlatformIO-managed library dependencies.
+
+Example manual serial port configuration:
+
+```ini
+[env:nano]
+platform = atmelavr
+board = nanoatmega328new
+upload_port = /dev/tty.usbserial-0001
+```
+
+### Firmware Options
+
+Hardware and behavior settings are defined in [include/settings.h](include/settings.h). After changing these values, rebuild and upload the firmware.
+
+- `kScreenAddress`: I2C address for the SSD1306 display. Default: `0x3C`.
+- `kButtonPin`: button input pin. Default: `2`.
+- `kBuzzerPin`: buzzer output pin. Default: `9`.
+- `kOledReset`: OLED reset pin passed to the display driver. Default: `4`.
+- `kRaSize`: moving-average sample window for sensor smoothing. Default: `20`.
+- `kCalHoldTimeSeconds`: hold time to trigger calibration. Default: `2` seconds.
+- `kModHoldTimeSeconds`: hold time to cycle the working pO2 setting. Default: `3` seconds.
+- `kMaxHoldTimeSeconds`: hold time to clear the max reading. Default: `4` seconds.
+- `kUiRefreshIntervalMs`: display refresh interval. Default: `200` ms.
+- `kStatusScreenMs`: how long temporary status screens remain visible. Default: `1200` ms.
+- `kLockScreenMs`: lock-screen display duration. Default: `5000` ms.
+- `kAirCalibrationPercent`: oxygen percentage used for air calibration. Default: `20.9`.
+- `kDefaultMaxPo2`: default maximum pO2 used in MOD calculations. Default: `1.60`.
+- `kMinValidCalibration` and `kMaxValidCalibration`: accepted calibration range guardrails.
+
+Change these only if your hardware wiring, display address, or operating assumptions differ from the current build.
 
 ## Build
 
