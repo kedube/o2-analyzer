@@ -16,9 +16,8 @@ This firmware accompanies the OLED-modified Divetech nitrox analyzer enclosure p
 
 ## OLED Screenshots
 
-| 1 | 2 | 3 | 4 |
-| --- | --- | --- | --- |
 | ![OLED screenshot 1](images/oled_screenshot_1.png) | ![OLED screenshot 2](images/oled_screenshot_2.png) | ![OLED screenshot 3](images/oled_screenshot_3.png) | ![OLED screenshot 4](images/oled_screenshot_4.png) |
+| --- | --- | --- | --- |
 | ![OLED screenshot 5](images/oled_screenshot_5.png) | ![OLED screenshot 6](images/oled_screenshot_6.png) | ![OLED screenshot 7](images/oled_screenshot_7.png) | ![OLED screenshot 8](images/oled_screenshot_8.png) |
 
 The current project target is an Arduino Nano ATmega328P with the new bootloader configuration.
