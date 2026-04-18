@@ -45,7 +45,7 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 
 ![OLED Arduino nitrox analyzer wiring diagram](images/oled-arduino-nitrox-analyzer.png)
 
-Connection details, based on Eunjae Im's original wiring notes:
+Connection details, based on the original wiring notes:
 
 - ADS1115: `VDD` to `5V`, `GND` to `GND`, `SCL` to `A5`, `SDA` to `A4`
 - OLED display: `VCC` to `5V`, `GND` to `GND`, `SCL` to `A5`, `SDA` to `A4`
