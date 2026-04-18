@@ -28,7 +28,6 @@
 #include <Fonts/FreeSansBold18pt7b.h>
 #include <Adafruit_ADS1X15.h>
 #include <EEPROM.h>
-#include <RunningAverage.h>
 
 #define VERSION "V0.25"
 
@@ -50,6 +49,11 @@ constexpr unsigned long kStatusScreenMs = 1200;
 constexpr unsigned long kLockScreenMs = 5000;
 constexpr unsigned long kPausePollMs = 10;
 constexpr unsigned long kMsPerSecond = 1000;
+constexpr unsigned long kCalHoldTimeMs = kCalHoldTimeSeconds * kMsPerSecond;
+constexpr unsigned long kModHoldTimeMs = kModHoldTimeSeconds * kMsPerSecond;
+constexpr unsigned long kMaxHoldTimeMs = kMaxHoldTimeSeconds * kMsPerSecond;
+constexpr unsigned long kMenuTimeoutMs = (kMaxHoldTimeSeconds + 1) * kMsPerSecond;
+constexpr unsigned long kActionTimeoutMs = 10 * kMsPerSecond;
 constexpr double kMinValidCalibration = 100.0;
 constexpr double kMaxValidCalibration = 32000.0;
 constexpr double kMinValidMillivolts = 0.02;
@@ -63,28 +67,87 @@ struct CalibrationData {
 };
 
 struct AnalyzerState {
-  double calibrationValue = 0.0;
-  double resultMax = 0.0;
+  float calibrationValue = 0.0F;
+  float resultMax = 0.0F;
   float maxPo1 = 1.30F;
   unsigned long millisHeld = 0;
-  unsigned long secsHeld = 0;
   byte previousButtonState = HIGH;
   unsigned long firstPressTime = 0;
   int activeFrames = 0;
   unsigned long lastUiRefreshMs = 0;
 };
 
+struct SensorAverage {
+  int16_t samples[kRaSize] = {};
+  int32_t sum = 0;
+  uint8_t count = 0;
+  uint8_t nextIndex = 0;
+
+  void clear() {
+    sum = 0;
+    count = 0;
+    nextIndex = 0;
+    for (uint8_t i = 0; i < kRaSize; ++i) {
+      samples[i] = 0;
+    }
+  }
+
+  void addValue(int16_t value) {
+    if (count < kRaSize) {
+      samples[nextIndex] = value;
+      sum += value;
+      ++count;
+    } else {
+      sum -= samples[nextIndex];
+      samples[nextIndex] = value;
+      sum += value;
+    }
+
+    ++nextIndex;
+    if (nextIndex >= kRaSize) {
+      nextIndex = 0;
+    }
+  }
+
+  float average() const {
+    if (count == 0) {
+      return 0.0F;
+    }
+    return static_cast<float>(sum) / static_cast<float>(count);
+  }
+};
+
+struct DisplaySnapshot {
+  bool initialized = false;
+  bool sensorError = false;
+  int16_t resultTenths = 0;
+  int16_t resultMaxTenths = 0;
+  int16_t mvHundredths = 0;
+  int16_t maxPo1Tenths = 0;
+  int16_t modPrimaryTenths = 0;
+  int16_t modSecondaryTenths = 0;
+  bool blinkVisible = false;
+  uint8_t holdMenu = 0;
+};
+
 int calibrate();
-bool readCalibration(double &value);
+bool readCalibration(float &value);
 void writeCalibration(uint16_t value);
-bool isCalibrationValid(double value);
+bool isCalibrationValid(float value);
 void pauseWithPolling(unsigned long durationMs);
 void readSensor();
 void analyze();
 void drawHoldMenuLabel(const __FlashStringHelper *label);
+void invalidateDisplaySnapshot();
+int16_t roundToTenths(float value);
+int16_t roundToHundredths(float value);
+uint8_t currentHoldMenu();
+void printUnsignedTenths(uint16_t value);
+void printUnsignedHundredths(uint16_t value);
 
-RunningAverage RA(kRaSize);
+SensorAverage sensorAverage;
 AnalyzerState state;
+DisplaySnapshot lastDisplaySnapshot;
 
 Adafruit_ADS1115 ads;
 Adafruit_SSD1306 display(kScreenWidth, kScreenHeight, &Wire, kOledReset);
@@ -115,7 +178,7 @@ void pauseWithPolling(unsigned long durationMs) {
 void readSensor() {
   int16_t millivolts = 0;
   millivolts = ads.readADC_Differential_0_1();
-  RA.addValue(millivolts);
+  sensorAverage.addValue(millivolts);
 }
 
 void drawHoldMenuLabel(const __FlashStringHelper *label) {
@@ -132,7 +195,53 @@ void drawHoldMenuLabel(const __FlashStringHelper *label) {
   display.print(label);
 }
 
-bool isCalibrationValid(double value) {
+void invalidateDisplaySnapshot() {
+  lastDisplaySnapshot.initialized = false;
+}
+
+int16_t roundToTenths(float value) {
+  const float scaled = value * 10.0F;
+  return static_cast<int16_t>(scaled >= 0.0F ? scaled + 0.5F : scaled - 0.5F);
+}
+
+int16_t roundToHundredths(float value) {
+  const float scaled = value * 100.0F;
+  return static_cast<int16_t>(scaled >= 0.0F ? scaled + 0.5F : scaled - 0.5F);
+}
+
+uint8_t currentHoldMenu() {
+  if (state.activeFrames <= 16 || state.millisHeld >= kMenuTimeoutMs) {
+    return 0;
+  }
+  if (state.millisHeld >= kCalHoldTimeMs && state.millisHeld < kModHoldTimeMs) {
+    return 1;
+  }
+  if (state.millisHeld >= kModHoldTimeMs && state.millisHeld < kMaxHoldTimeMs) {
+    return 2;
+  }
+  if (state.millisHeld >= kMaxHoldTimeMs && state.millisHeld < kActionTimeoutMs) {
+    return 3;
+  }
+  return 0;
+}
+
+void printUnsignedTenths(uint16_t value) {
+  display.print(value / 10);
+  display.print('.');
+  display.print(value % 10);
+}
+
+void printUnsignedHundredths(uint16_t value) {
+  display.print(value / 100);
+  display.print('.');
+  const uint8_t fractional = value % 100;
+  if (fractional < 10) {
+    display.print('0');
+  }
+  display.print(fractional);
+}
+
+bool isCalibrationValid(float value) {
   return value >= kMinValidCalibration && value <= kMaxValidCalibration;
 }
 
@@ -144,7 +253,7 @@ void writeCalibration(uint16_t value) {
   }
 }
 
-bool readCalibration(double &value) {
+bool readCalibration(float &value) {
   CalibrationData data = {};
   uint8_t *raw = reinterpret_cast<uint8_t *>(&data);
   for (unsigned int i = 0; i < sizeof(CalibrationData); ++i) {
@@ -173,18 +282,19 @@ void setup(void) {
 
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
-  display.setCursor(45,22);
+  display.setCursor(45,16);
   display.print(F("Nitrox"));
 
   display.setFont(&FreeSans9pt7b);
-  display.setCursor(32,40);
+  display.setCursor(32,34);
   display.print(F("Analyzer"));
 
   display.setFont();
-  display.setCursor(51,52);
+  display.setCursor(51,48);
   display.setTextSize(1);
   display.print(F(VERSION));
   display.display();
+  invalidateDisplaySnapshot();
 
   delay(2000); // Pause for 2 seconds
 
@@ -193,7 +303,7 @@ void setup(void) {
 
   pinMode(kButtonPin,INPUT_PULLUP);
 
-  RA.clear();
+    sensorAverage.clear();
   for(int cx=0; cx< kRaSize; cx++) {
      readSensor();
   }
@@ -215,13 +325,15 @@ int calibrate() {
   display.print(F("Calibrate"));
   display.display();
 
-  RA.clear();
-  double result;
+  sensorAverage.clear();
+  float result;
   for(int cx=0; cx< kRaSize; cx++) {
     readSensor();
   }
-  result = RA.getAverage();
-  result = abs(result);
+  result = sensorAverage.average();
+  if (result < 0.0F) {
+    result = -result;
+  }
   if (result < kMinValidCalibration) {
     result = kMinValidCalibration;
   } else if (result > kMaxValidCalibration) {
@@ -231,18 +343,22 @@ int calibrate() {
 
   beep(1);
   pauseWithPolling(kStatusScreenMs);
+  invalidateDisplaySnapshot();
   state.activeFrames = 0;
   return result;
 }
 
 void analyze() {
-  double currentmv=0;
-  double result;
-  double mv = 0.0;
+  float currentmv = 0.0F;
+  float result = 0.0F;
+  float mv = 0.0F;
+  DisplaySnapshot snapshot = {};
 
   readSensor();
-  currentmv = RA.getAverage();
-  currentmv = abs(currentmv);
+  currentmv = sensorAverage.average();
+  if (currentmv < 0.0F) {
+    currentmv = -currentmv;
+  }
   mv = currentmv * kAdsMultiplier;
 
   if (!isCalibrationValid(state.calibrationValue) || mv < kMinValidMillivolts) {
@@ -252,22 +368,58 @@ void analyze() {
   }
   if (result > 99.9) result = 99.9;
 
-  display.clearDisplay();
-  display.setTextColor(WHITE);
+  snapshot.initialized = true;
+  snapshot.sensorError = mv < 0.06 || result <= 0;
+  snapshot.resultTenths = roundToTenths(result);
+  snapshot.mvHundredths = roundToHundredths(mv);
+  snapshot.maxPo1Tenths = roundToTenths(state.maxPo1);
+  snapshot.blinkVisible = (state.activeFrames % 4) != 0;
+  snapshot.holdMenu = currentHoldMenu();
 
-  if (mv < 0.06 || result <= 0) {
-    display.setCursor(37,22);
+  if (snapshot.sensorError) {
+    if (lastDisplaySnapshot.initialized &&
+        lastDisplaySnapshot.sensorError == snapshot.sensorError &&
+        lastDisplaySnapshot.mvHundredths == snapshot.mvHundredths) {
+      return;
+    }
+
+    lastDisplaySnapshot = snapshot;
+    display.clearDisplay();
+    display.setTextColor(WHITE);
+    display.setCursor(36,22);
     display.setFont(&FreeSans9pt7b);
     display.setTextSize(1);
     display.print(F("Sensor"));
-    display.setCursor(43,47);
+    display.setCursor(42,47);
     display.print(F("Error!"));
+    display.display();
   } else {
     int16_t topLineX = 0;
 
     if (result >= state.resultMax) {
       state.resultMax = result;
     }
+
+    snapshot.resultMaxTenths = roundToTenths(state.resultMax);
+    snapshot.modPrimaryTenths = roundToTenths(cal_mod(result, state.maxPo1));
+    snapshot.modSecondaryTenths = roundToTenths(cal_mod(result, max_po2));
+
+    if (lastDisplaySnapshot.initialized &&
+        !lastDisplaySnapshot.sensorError &&
+        lastDisplaySnapshot.resultTenths == snapshot.resultTenths &&
+        lastDisplaySnapshot.resultMaxTenths == snapshot.resultMaxTenths &&
+        lastDisplaySnapshot.mvHundredths == snapshot.mvHundredths &&
+        lastDisplaySnapshot.maxPo1Tenths == snapshot.maxPo1Tenths &&
+        lastDisplaySnapshot.modPrimaryTenths == snapshot.modPrimaryTenths &&
+        lastDisplaySnapshot.modSecondaryTenths == snapshot.modSecondaryTenths &&
+        lastDisplaySnapshot.blinkVisible == snapshot.blinkVisible &&
+        lastDisplaySnapshot.holdMenu == snapshot.holdMenu) {
+      return;
+    }
+
+    lastDisplaySnapshot = snapshot;
+    display.clearDisplay();
+    display.setTextColor(WHITE);
 
     display.setCursor(30,0);
     display.setFont(&FreeSansBold18pt7b);
@@ -280,7 +432,7 @@ void analyze() {
       topLineX = 0;
     }
     display.setCursor(topLineX, 28);
-    display.print(result,1);
+    printUnsignedTenths(snapshot.resultTenths);
     display.print(F("%"));
     display.setFont();
 
@@ -288,9 +440,9 @@ void analyze() {
     display.setTextColor(BLACK, WHITE);
     display.setCursor(0,31);
     display.print(F("  Max "));
-    display.print(state.resultMax,1);
+    printUnsignedTenths(snapshot.resultMaxTenths);
     display.print(F("%  "));
-    display.print(mv,2);
+    printUnsignedHundredths(snapshot.mvHundredths);
     display.print(F("mv  "));
 
     if (state.activeFrames % 4) {
@@ -302,37 +454,31 @@ void analyze() {
     display.setTextColor(WHITE);
     display.setCursor(21,40);
     display.print(F("pO2 "));
-    display.print(state.maxPo1,1);
+    printUnsignedTenths(snapshot.maxPo1Tenths);
     display.print(F("/"));
-    display.print(max_po2,1);
+    printUnsignedTenths(roundToTenths(max_po2));
     display.print(F(" MOD"));
 
     display.setFont(&FreeSans9pt7b);
     display.setTextSize(1);
     display.setCursor(3,63);
     display.print(F(" "));
-    display.print(cal_mod(result,state.maxPo1),1);
+    printUnsignedTenths(snapshot.modPrimaryTenths);
     display.print(F("/"));
-    display.print(cal_mod(result,max_po2),1);
+    printUnsignedTenths(snapshot.modSecondaryTenths);
     display.print(F("M "));
     display.setFont();
 
     // Show menu labels only after the display has settled to reduce flicker.
-    if (state.millisHeld < (kMaxHoldTimeSeconds + 1) * kMsPerSecond && state.activeFrames > 16) {
-      if (state.millisHeld >= kCalHoldTimeSeconds * kMsPerSecond &&
-          state.millisHeld < kModHoldTimeSeconds * kMsPerSecond) {
+    if (snapshot.holdMenu == 1) {
         drawHoldMenuLabel(F("CAL"));
-      } else if (state.millisHeld >= kModHoldTimeSeconds * kMsPerSecond &&
-          state.millisHeld < kMaxHoldTimeSeconds * kMsPerSecond) {
+    } else if (snapshot.holdMenu == 2) {
         drawHoldMenuLabel(F("PO2"));
-      } else if (state.millisHeld >= kMaxHoldTimeSeconds * kMsPerSecond &&
-          state.millisHeld < 10 * kMsPerSecond) {
+    } else if (snapshot.holdMenu == 3) {
         drawHoldMenuLabel(F("MAX"));
-      }
     }
-
+    display.display();
   }
-  display.display();
 }
 
 void lock_screen(unsigned long pause = kLockScreenMs) {
@@ -352,6 +498,7 @@ void lock_screen(unsigned long pause = kLockScreenMs) {
     }
     delay(kPausePollMs);
    }
+  invalidateDisplaySnapshot();
    state.activeFrames = 0;
    state.firstPressTime = millis();
 }
@@ -367,10 +514,11 @@ void po2_change() {
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
   display.print(F("pO2: "));
-  display.print(state.maxPo1);
+  printUnsignedHundredths(static_cast<uint16_t>(state.maxPo1 * 100.0F + 0.5F));
   display.display();
   beep(1);
   pauseWithPolling(kStatusScreenMs);
+  invalidateDisplaySnapshot();
   state.activeFrames = 0;
 }
 
@@ -387,6 +535,7 @@ void max_clear() {
   display.display();
   beep(1);
   pauseWithPolling(kStatusScreenMs);
+  invalidateDisplaySnapshot();
   state.activeFrames = 0;
 }
 
@@ -400,23 +549,21 @@ void loop(void) {
   }
 
   state.millisHeld = now - state.firstPressTime;
-  state.secsHeld = state.millisHeld / 1000;
-
   if (state.millisHeld > 2) {
     if (current == HIGH && state.previousButtonState == LOW) {
-      if (state.millisHeld < kCalHoldTimeSeconds * kMsPerSecond) {
+      if (state.millisHeld < kCalHoldTimeMs) {
         lock_screen();
       }
-      if (state.millisHeld >= kCalHoldTimeSeconds * kMsPerSecond &&
-          state.millisHeld < kModHoldTimeSeconds * kMsPerSecond) {
+      if (state.millisHeld >= kCalHoldTimeMs &&
+          state.millisHeld < kModHoldTimeMs) {
         state.calibrationValue = calibrate();
       }
-      if (state.millisHeld >= kModHoldTimeSeconds * kMsPerSecond &&
-          state.millisHeld < kMaxHoldTimeSeconds * kMsPerSecond) {
+      if (state.millisHeld >= kModHoldTimeMs &&
+          state.millisHeld < kMaxHoldTimeMs) {
         po2_change();
       }
-      if (state.millisHeld >= kMaxHoldTimeSeconds * kMsPerSecond &&
-          state.millisHeld < 10 * kMsPerSecond) {
+      if (state.millisHeld >= kMaxHoldTimeMs &&
+          state.millisHeld < kActionTimeoutMs) {
         max_clear();
       }
     }
