@@ -41,6 +41,23 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 - Push button on digital pin `2`
 - Buzzer on digital pin `9`
 
+## Wiring Diagram
+
+![OLED Arduino nitrox analyzer wiring diagram](images/oled-arduino-nitrox-analyzer.png)
+
+Connection details, based on Eunjae Im's original wiring notes:
+
+- ADS1115: `VDD` to `5V`, `GND` to `GND`, `SCL` to `A5`, `SDA` to `A4`
+- OLED display: `VCC` to `5V`, `GND` to `GND`, `SCL` to `A5`, `SDA` to `A4`
+- Push button: one side to `GND`, the other to `D2`
+- Buzzer: positive to `D9`, negative to `GND`
+- Oxygen sensor: positive to ADS1115 `A0`, negative to ADS1115 `A1`
+- Battery: positive to `VIN` through the rocker switch, negative to `GND`
+
+The OLED and ADS1115 share the same I2C bus, so both modules connect to the Nano's `A4`/`SDA` and `A5`/`SCL` pins.
+
+The original ejlabs notes also caution that a `9V` battery is a poor long-term power choice for Arduino projects and that reverse polarity on `VIN` can damage the onboard regulator.
+
 ## Enclosure And 3D Files
 
 The printable enclosure is based on Tony Land's Divetech nitrox analyzer housing and was remixed to fit commonly available `0.96"` `128x64` OLED modules whose display glass is larger than the original front-panel cutout.
