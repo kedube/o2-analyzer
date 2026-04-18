@@ -2,6 +2,8 @@
 
 PlatformIO firmware for an Arduino-based nitrox / oxygen analyzer with a 128x64 SSD1306 OLED, ADS1115 ADC, buzzer feedback, EEPROM-backed calibration, and a single-button UI.
 
+This firmware accompanies the OLED-modified Divetech nitrox analyzer enclosure published on Printables by Katherine Dube and is intended to build cleanly in Visual Studio Code with current PlatformIO and Adafruit libraries.
+
 ## Images
 
 ![O2 analyzer front view](images/nitrox_analyzer-1.jpeg)
@@ -33,9 +35,33 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 - Push button on digital pin `2`
 - Buzzer on digital pin `9`
 
-3D-printable enclosure files are available on Printables:
+## Enclosure And 3D Files
+
+The printable enclosure is based on Tony Land's Divetech nitrox analyzer housing and was remixed to fit commonly available `0.96"` `128x64` OLED modules whose display glass is larger than the original front-panel cutout.
+
+The STL files are published on Printables:
 
 - [OLED modification for Divetech nitrox analyzer](https://www.printables.com/model/554448-oled-modification-for-divetech-nitrox-analyzer)
+
+The Printables model page also includes the other enclosure files for convenience, along with links to the original housing and archived background references.
+
+## Bill Of Materials
+
+The Printables model lists these parts for the physical build:
+
+- Arduino Nano
+- `0.96"` `128x64` OLED display
+- ADS1115 analog-to-digital converter
+- Rocker switch, `13 x 19 mm` panel mount
+- Push button, `12 mm` diameter
+- `9 mm` electronic buzzer
+- `6` M3x10 mm hex-head screws
+- `4` M2x10 mm hex-head screws
+- Molex terminals
+- `9V` battery clip connector
+- `9V` battery
+- Oxygen sensor
+- Hook-up wire and solder
 
 ## Button Actions
 
@@ -62,7 +88,7 @@ o2-analyzer/
 │   ├── FreeSansBold18pt7bSubset.h
 │   └── settings.h
 └── src/
-  └── main.cpp
+    └── main.cpp
 ```
 
 - [src/main.cpp](src/main.cpp): firmware logic, UI rendering, button handling, calibration, and sensor processing
@@ -117,7 +143,7 @@ To clone and build this firmware from Visual Studio Code:
 You can also clone from a terminal:
 
 ```sh
-git clone <repository-url>
+git clone https://github.com/kedube/o2-analyzer.git
 cd o2-analyzer
 code .
 ```
@@ -231,9 +257,16 @@ Core Arduino libraries used directly by the firmware:
 
 ## Origin
 
-The source header references ejlabs' OLED nitrox analyzer project:
+This project sits on top of earlier mechanical and firmware work:
+
+- The enclosure remix is based on Tony Land's Divetech nitrox analyzer housing.
+- The firmware originates from Eunjae Im's OLED nitrox analyzer project and has been updated here for current OLED hardware, newer Adafruit libraries, and a smoother VS Code and PlatformIO workflow.
+- The Printables project page for this build is [OLED modification for Divetech nitrox analyzer](https://www.printables.com/model/554448-oled-modification-for-divetech-nitrox-analyzer).
+
+Background references:
 
 - http://ejlabs.net/arduino-oled-nitrox-analyzer
+- https://web.archive.org/web/20240414033725/https://www.divetech.com/post/the-20-nitrox-analyzer
 
 ## License
 
