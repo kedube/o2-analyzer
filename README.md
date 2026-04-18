@@ -2,6 +2,16 @@
 
 PlatformIO firmware for an Arduino-based nitrox / oxygen analyzer with a 128x64 SSD1306 OLED, ADS1115 ADC, buzzer feedback, EEPROM-backed calibration, and a single-button UI.
 
+## Images
+
+![O2 analyzer front view](images/nitrox_analyzer-1.jpeg)
+
+![O2 analyzer display close-up](images/nitrox_analyzer-2.jpeg)
+
+![O2 analyzer internal wiring](images/nitrox_analyzer-3.jpeg)
+
+![O2 analyzer alternate assembly view](images/nitrox_analyzer-4.jpeg)
+
 The current project target is an Arduino Nano ATmega328P with the new bootloader configuration.
 
 ## Features
