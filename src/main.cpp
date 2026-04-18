@@ -24,8 +24,8 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Fonts/FreeSans9pt7b.h>
-#include <Fonts/FreeSansBold18pt7b.h>
+#include "FreeSansBold18pt7bSubset.h"
+#include "FreeSans9pt7bSubset.h"
 #include <Adafruit_ADS1X15.h>
 #include <EEPROM.h>
 
@@ -280,13 +280,12 @@ void setup(void) {
   display.clearDisplay();
   display.setTextColor(WHITE);
 
-  display.setFont(&FreeSans9pt7b);
+  display.setFont(&FreeSans9pt7bSubset);
   display.setTextSize(1);
-  display.setCursor(45,16);
+  display.setCursor(45,18);
   display.print(F("Nitrox"));
 
-  display.setFont(&FreeSans9pt7b);
-  display.setCursor(32,34);
+  display.setCursor(32,36);
   display.print(F("Analyzer"));
 
   display.setFont();
@@ -319,9 +318,9 @@ int calibrate() {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(30,30);
-  display.setFont(&FreeSans9pt7b);
+  display.setFont(&FreeSans9pt7bSubset);
   display.setTextSize(1);
+  display.setCursor(28,30);
   display.print(F("Calibrate"));
   display.display();
 
@@ -386,11 +385,11 @@ void analyze() {
     lastDisplaySnapshot = snapshot;
     display.clearDisplay();
     display.setTextColor(WHITE);
-    display.setCursor(36,22);
-    display.setFont(&FreeSans9pt7b);
+    display.setFont(&FreeSans9pt7bSubset);
     display.setTextSize(1);
+    display.setCursor(37,22);
     display.print(F("Sensor"));
-    display.setCursor(42,47);
+    display.setCursor(43,47);
     display.print(F("Error!"));
     display.display();
   } else {
@@ -422,7 +421,7 @@ void analyze() {
     display.setTextColor(WHITE);
 
     display.setCursor(30,0);
-    display.setFont(&FreeSansBold18pt7b);
+    display.setFont(&FreeSansBold18pt7bSubset);
     display.setTextSize(1);
     topLineX = 18;
     if (result >= 10.0) {
@@ -459,7 +458,7 @@ void analyze() {
     printUnsignedTenths(roundToTenths(max_po2));
     display.print(F(" MOD"));
 
-    display.setFont(&FreeSans9pt7b);
+    display.setFont(&FreeSans9pt7bSubset);
     display.setTextSize(1);
     display.setCursor(3,63);
     display.print(F(" "));
@@ -510,9 +509,9 @@ void po2_change() {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(24,30);
-  display.setFont(&FreeSans9pt7b);
+  display.setFont(&FreeSans9pt7bSubset);
   display.setTextSize(1);
+  display.setCursor(27,30);
   display.print(F("pO2: "));
   printUnsignedHundredths(static_cast<uint16_t>(state.maxPo1 * 100.0F + 0.5F));
   display.display();
@@ -526,11 +525,11 @@ void max_clear() {
   state.resultMax = 0;
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(21,22);
-  display.setFont(&FreeSans9pt7b);
+  display.setFont(&FreeSans9pt7bSubset);
   display.setTextSize(1);
+  display.setCursor(20,22);
   display.print(F("Max Result"));
-  display.setCursor(34,47);
+  display.setCursor(33,47);
   display.print(F("Cleared"));
   display.display();
   beep(1);
