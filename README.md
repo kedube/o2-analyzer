@@ -42,13 +42,22 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 Current PlatformIO configuration:
 
 ```ini
-[env:uno]
-platform = atmelavr
-board = nanoatmega328new
+[platformio]
+default_envs = nano
+
+[env]
 framework = arduino
 monitor_speed = 9600
+upload_speed = 115200
 build_flags =
   -D SSD1306_NO_SPLASH
+
+[env:nano]
+platform = atmelavr
+board = nanoatmega328new
+
+[env:uno]
+extends = env:nano
 ```
 
 Install PlatformIO with either the VS Code PlatformIO extension or the CLI:
@@ -62,13 +71,13 @@ python3 -m pip install --user platformio
 From the repository root:
 
 ```sh
-platformio run --environment uno
+platformio run
 ```
 
 ## Upload
 
 ```sh
-platformio run --target upload --environment uno
+platformio run --target upload
 ```
 
 If PlatformIO does not auto-detect the serial port on your machine, add `upload_port` to [platformio.ini](platformio.ini).
