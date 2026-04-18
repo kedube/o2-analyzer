@@ -42,6 +42,24 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 
 ## Project Layout
 
+```text
+o2-analyzer/
+├── LICENSE
+├── README.md
+├── RELEASE_NOTES_0.25.md
+├── platformio.ini
+├── images/
+│   ├── nitrox_analyzer-1.jpeg
+│   ├── nitrox_analyzer-2.jpeg
+│   ├── nitrox_analyzer-3.jpeg
+│   └── nitrox_analyzer-4.jpeg
+├── include/
+│   ├── FreeSans9pt7bSubset.h
+│   └── FreeSansBold18pt7bSubset.h
+└── src/
+  └── main.cpp
+```
+
 - [src/main.cpp](src/main.cpp): firmware logic, UI rendering, button handling, calibration, and sensor processing
 - [include/FreeSans9pt7bSubset.h](include/FreeSans9pt7bSubset.h): subset small UI font
 - [include/FreeSansBold18pt7bSubset.h](include/FreeSansBold18pt7bSubset.h): subset large percentage font
