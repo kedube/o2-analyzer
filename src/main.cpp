@@ -30,7 +30,7 @@
 #include <EEPROM.h>
 #include <RunningAverage.h>
 
-#define VERSION "V0.23"
+#define VERSION "V0.25"
 
 constexpr uint8_t kCalibrationMagic = 0xA5;
 constexpr int kCalibrationAddress = 0;
@@ -46,7 +46,7 @@ constexpr unsigned long kModHoldTimeSeconds = 3;
 constexpr unsigned long kMaxHoldTimeSeconds = 4;
 constexpr unsigned long kButtonDebounceMs = 200;
 constexpr unsigned long kUiRefreshIntervalMs = 200;
-constexpr unsigned long kStatusScreenMs = 2000;
+constexpr unsigned long kStatusScreenMs = 1200;
 constexpr unsigned long kLockScreenMs = 5000;
 constexpr unsigned long kPausePollMs = 10;
 constexpr unsigned long kMsPerSecond = 1000;
@@ -254,13 +254,14 @@ void analyze() {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setCursor(30,0);
 
-  if (mv < 0.02 || result <= 0) {
+  if (mv < 0.06 || result <= 0) {
+    display.setCursor(37,22);
     display.setFont(&FreeSans9pt7b);
-     display.setTextSize(1);
-     display.println(F("Sensor"));
-     display.print(F("Error!"));
+    display.setTextSize(1);
+    display.print(F("Sensor"));
+    display.setCursor(43,47);
+    display.print(F("Error!"));
   } else {
     int16_t topLineX = 0;
 
@@ -268,6 +269,7 @@ void analyze() {
       state.resultMax = result;
     }
 
+    display.setCursor(30,0);
     display.setFont(&FreeSansBold18pt7b);
     display.setTextSize(1);
     topLineX = 18;
@@ -287,12 +289,12 @@ void analyze() {
     display.setCursor(0,31);
     display.print(F("  Max "));
     display.print(state.resultMax,1);
-    display.print(F("%   "));
+    display.print(F("%  "));
     display.print(mv,2);
     display.print(F("mv  "));
 
     if (state.activeFrames % 4) {
-      display.setCursor(115,10);
+      display.setCursor(118,10);
       display.setTextColor(WHITE);
       display.print(F("."));
     }
@@ -341,7 +343,7 @@ void lock_screen(unsigned long pause = kLockScreenMs) {
   display.print(F("                 "));
   display.setTextColor(BLACK, WHITE);
   display.setCursor(0,31);
-  display.print(F("====== LOCKED ======="));
+  display.print(F(" ====== LOCK ======= "));
   display.display();
   const unsigned long startMs = millis();
   while ((millis() - startMs) < pause) {
@@ -380,7 +382,7 @@ void max_clear() {
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
   display.print(F("Max Result"));
-  display.setCursor(33,47);
+  display.setCursor(34,47);
   display.print(F("Cleared"));
   display.display();
   beep(1);
