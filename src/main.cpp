@@ -20,7 +20,6 @@
 *****************************************************************************/
 
 #include <Arduino.h>
-#include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -269,11 +268,8 @@ bool readCalibration(float &value) {
 }
 
 void setup(void) {
- Serial.begin(9600);
-
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, kScreenAddress)) {
-    Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
 
