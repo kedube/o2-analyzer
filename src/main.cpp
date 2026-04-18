@@ -136,7 +136,7 @@ bool isCalibrationValid(float value);
 void pauseWithPolling(unsigned long durationMs);
 void readSensor();
 void analyze();
-void drawHoldMenuLabel(const __FlashStringHelper *label);
+void drawHoldMenuLabel(const char *label);
 void invalidateDisplaySnapshot();
 void drawCenteredText(const char *text, int16_t baselineY);
 int16_t roundToTenths(float value);
@@ -195,18 +195,16 @@ void drawCenteredText(const char *text, int16_t baselineY) {
   display.print(text);
 }
 
-void drawHoldMenuLabel(const __FlashStringHelper *label) {
+void drawHoldMenuLabel(const char *label) {
   constexpr int kMenuX = 0;
   constexpr int kMenuY = 31;
   constexpr int kMenuWidth = 128;
   constexpr int kMenuHeight = 16;
-  constexpr int kLabelX = 46;
 
   display.fillRect(kMenuX, kMenuY, kMenuWidth, kMenuHeight, WHITE);
   display.setTextSize(2);
   display.setTextColor(BLACK, WHITE);
-  display.setCursor(kLabelX, kMenuY);
-  display.print(label);
+  drawCenteredText(label, kMenuY);
 }
 
 void invalidateDisplaySnapshot() {
@@ -451,6 +449,7 @@ void analyze() {
     drawCenteredText("Error!", 47);
     display.display();
   } else {
+    char maxLine[24] = {};
     char po2Line[20] = {};
     char modLine[16] = {};
     char resultText[8] = {};
@@ -487,13 +486,17 @@ void analyze() {
     display.setFont();
 
     display.setTextSize(1);
+    display.fillRect(0, 31, kScreenWidth, 8, WHITE);
     display.setTextColor(BLACK, WHITE);
-    display.setCursor(0,31);
-    display.print(F("  Max "));
-    printUnsignedTenths(snapshot.resultMaxTenths);
-    display.print(F("%  "));
-    printUnsignedHundredths(snapshot.mvHundredths);
-    display.print(F("mv  "));
+    char *maxLineEnd = appendText(maxLine, "Max ");
+    maxLineEnd = appendTenthsText(maxLineEnd, snapshot.resultMaxTenths);
+    maxLineEnd = appendText(maxLineEnd, "% ");
+    formatHundredthsText(snapshot.mvHundredths, maxLineEnd);
+    while (*maxLineEnd != '\0') {
+      ++maxLineEnd;
+    }
+    appendText(maxLineEnd, "mv");
+    drawCenteredText(maxLine, 31);
 
     if (state.activeFrames % 4) {
       display.setCursor(118,10);
@@ -520,11 +523,11 @@ void analyze() {
 
     // Show menu labels only after the display has settled to reduce flicker.
     if (snapshot.holdMenu == 1) {
-        drawHoldMenuLabel(F("CAL"));
+      drawHoldMenuLabel("CAL");
     } else if (snapshot.holdMenu == 2) {
-        drawHoldMenuLabel(F("PO2"));
+      drawHoldMenuLabel("PO2");
     } else if (snapshot.holdMenu == 3) {
-        drawHoldMenuLabel(F("MAX"));
+      drawHoldMenuLabel("MAX");
     }
     display.display();
   }
@@ -533,12 +536,9 @@ void analyze() {
 void lock_screen(unsigned long pause = kLockScreenMs) {
   beep(1);
   display.setTextSize(1);
-  display.setCursor(0,31);
-  display.setTextColor(0xFFFF, 0);
-  display.print(F("                 "));
+  display.fillRect(0, 31, kScreenWidth, 8, WHITE);
   display.setTextColor(BLACK, WHITE);
-  display.setCursor(0,31);
-  display.print(F(" ====== LOCK ====== "));
+  drawCenteredText("LOCK", 31);
   display.display();
   const unsigned long startMs = millis();
   while ((millis() - startMs) < pause) {
