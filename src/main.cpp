@@ -298,9 +298,19 @@ void formatHundredthsText(uint16_t value, char *buffer, const char *prefix) {
     }
   }
 
-  const uint16_t whole = value / 100;
+  uint16_t whole = value / 100;
   const uint8_t fractional = value % 100;
-  *buffer++ = static_cast<char>('0' + whole);
+  char digits[5] = {};
+  uint8_t digitCount = 0;
+
+  do {
+    digits[digitCount++] = static_cast<char>('0' + (whole % 10));
+    whole /= 10;
+  } while (whole > 0);
+
+  for (int8_t i = digitCount - 1; i >= 0; --i) {
+    *buffer++ = digits[i];
+  }
   *buffer++ = '.';
   *buffer++ = static_cast<char>('0' + (fractional / 10));
   *buffer++ = static_cast<char>('0' + (fractional % 10));
