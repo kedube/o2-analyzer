@@ -14,6 +14,8 @@ This firmware accompanies the OLED-modified Divetech nitrox analyzer enclosure p
 
 ![O2 analyzer alternate assembly view](images/nitrox_analyzer-4.jpeg)
 
+![O2 analyzer alternate assembly view](images/nitrox_analyzer-5.jpeg)
+
 ## OLED Screenshots
 
 | ![OLED screenshot 1](images/oled_screenshot_1.png) | ![OLED screenshot 2](images/oled_screenshot_2.png) | ![OLED screenshot 3](images/oled_screenshot_3.png) | ![OLED screenshot 4](images/oled_screenshot_4.png) |
@@ -64,9 +66,14 @@ The printable enclosure is based on Tony Land's Divetech nitrox analyzer housing
 
 The STL files are published on Printables:
 
-- [OLED modification for Divetech nitrox analyzer](https://www.printables.com/model/554448-oled-modification-for-divetech-nitrox-analyzer)
+- [Divetech nitrox analyzer STL files](https://www.printables.com/model/554448-oled-modification-for-divetech-nitrox-analyzer)
 
 The Printables model page also includes the other enclosure files for convenience, along with links to the original housing and archived background references.
+
+Local hardware references in this repository:
+
+- [hardware/assembly/README.md](hardware/assembly/README.md): assembly photo gallery
+- [hardware/3d-models](hardware/3d-models): local STL files for the enclosure and accessories
 
 ## Bill Of Materials
 
@@ -114,6 +121,10 @@ o2-analyzer/
 │   ├── FreeSans9pt7bSubset.h
 │   ├── FreeSansBold18pt7bSubset.h
 │   └── settings.h
+├── hardware/
+│   ├── 3d-models/
+│   └── assembly/
+│       └── README.md
 └── src/
     └── main.cpp
 ```
@@ -122,6 +133,8 @@ o2-analyzer/
 - [include/FreeSans9pt7bSubset.h](include/FreeSans9pt7bSubset.h): subset small UI font
 - [include/FreeSansBold18pt7bSubset.h](include/FreeSansBold18pt7bSubset.h): subset large percentage font
 - [include/settings.h](include/settings.h): firmware configuration constants for pins, timings, display settings, and calibration defaults
+- [hardware/assembly/README.md](hardware/assembly/README.md): assembly image gallery
+- [hardware/3d-models](hardware/3d-models): printable enclosure and accessory STL files
 - [platformio.ini](platformio.ini): PlatformIO target, libraries, and build flags
 - [tools/oled_capture.py](tools/oled_capture.py): converts a captured SSD1306 framebuffer dump into a PNG image
 
