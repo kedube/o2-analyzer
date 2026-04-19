@@ -28,7 +28,7 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 - Smooths sensor readings with a lightweight local moving average
 - Displays live O2 percentage, max reading, sensor millivolts, and MOD values
 - Stores calibration data in EEPROM so it survives power cycles
-- Uses a single button for lock, calibration, pO2 selection, and max-clear actions
+- Uses a single button hold-menu for lock, calibration, pO2 selection, buzzer toggle, and max-clear actions
 - Uses centered OLED layouts and subsetted Adafruit GFX fonts to preserve the condensed UI while reducing flash usage
 - Skips redundant OLED redraws to reduce display flicker and unnecessary work
 
@@ -39,7 +39,7 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 - ADS1115 ADC
 - Oxygen sensor wired to ADS1115 differential input `A0/A1`
 - Push button on digital pin `2`
-- Buzzer on digital pin `9`
+- Buzzer on digital pin `3`
 
 ## Wiring Diagram
 
@@ -50,7 +50,7 @@ Connection details, based on the original wiring notes:
 - ADS1115: `VDD` to `5V`, `GND` to `GND`, `SCL` to `A5`, `SDA` to `A4`
 - OLED display: `VCC` to `5V`, `GND` to `GND`, `SCL` to `A5`, `SDA` to `A4`
 - Push button: one side to `GND`, the other to `D2`
-- Buzzer: positive to `D9`, negative to `GND`
+- Buzzer: positive to `D3`, negative to `GND`
 - Oxygen sensor: positive to ADS1115 `A0`, negative to ADS1115 `A1`
 - Battery: positive to `VIN` through the rocker switch, negative to `GND`
 
@@ -89,9 +89,10 @@ The Printables model lists these parts for the physical build:
 ## Button Actions
 
 - Tap: lock screen
-- Hold about 2 seconds: calibrate in air
-- Hold about 3 seconds: cycle working pO2 between `1.3`, `1.4`, and `1.5`
-- Hold about 4 seconds: clear the max reading
+- Hold for the menu-entry delay: enter the hold menu at `CAL`
+- Keep holding: cycle through `CAL` -> `PO2` -> `BUZ` -> `MAX` -> normal screen, then repeat
+- Release while a menu label is shown: run that action
+- Release while the normal screen is shown during the cycle: exit without changing anything
 
 ## Project Layout
 
@@ -107,7 +108,9 @@ o2-analyzer/
 │   ├── nitrox_analyzer-1.jpeg
 │   ├── nitrox_analyzer-2.jpeg
 │   ├── nitrox_analyzer-3.jpeg
-│   └── nitrox_analyzer-4.jpeg
+│   ├── nitrox_analyzer-4.jpeg
+│   ├── oled-arduino-nitrox-analyzer.png
+│   └── oled_screenshot_*.png
 ├── include/
 │   ├── FreeSans9pt7bSubset.h
 │   ├── FreeSansBold18pt7bSubset.h
@@ -137,13 +140,14 @@ monitor_speed = 9600
 upload_speed = 115200
 build_flags =
   -D SSD1306_NO_SPLASH
+lib_deps =
+  adafruit/Adafruit GFX Library @ ^1.12.6
+  adafruit/Adafruit SSD1306 @ ^2.5.16
+  adafruit/Adafruit ADS1X15 @ ^2.6.2
 
 [env:nano]
 platform = atmelavr
 board = nanoatmega328new
-
-[env:uno]
-extends = env:nano
 ```
 
 Install PlatformIO with either the VS Code PlatformIO extension or the CLI:
@@ -217,18 +221,18 @@ Hardware and behavior settings are defined in [include/settings.h](include/setti
 
 - `kScreenAddress`: I2C address for the SSD1306 display. Default: `0x3C`.
 - `kButtonPin`: button input pin. Default: `2`.
-- `kBuzzerPin`: buzzer output pin. Default: `9`.
+- `kBuzzerPin`: buzzer output pin. Default: `3`.
+- `kBuzzerEnabledByDefault`: sets whether the buzzer starts enabled after boot. Default: `true`.
 - `kSerialBaudRate`: serial monitor and screenshot capture baud rate. Default: `9600`.
 - `kScreenshotCommand`: serial command character used to request a display dump. Default: `s`.
 - `kOledReset`: OLED reset pin passed to the display driver. Default: `4`.
 - `kRaSize`: moving-average sample window for sensor smoothing. Default: `20`.
-- `kCalHoldTimeSeconds`: hold time to trigger calibration. Default: `2` seconds.
-- `kModHoldTimeSeconds`: hold time to cycle the working pO2 setting. Default: `3` seconds.
-- `kMaxHoldTimeSeconds`: hold time to clear the max reading. Default: `4` seconds.
-- `kUiRefreshIntervalMs`: display refresh interval. Default: `200` ms.
+- `kMenuEntryHoldSeconds`: button hold time before the menu appears. Default: `2` seconds.
+- `kMenuStepIntervalMs`: time each menu slot stays active before advancing to the next label or back to the normal screen. Default: `1100` ms.
 - `kStatusScreenMs`: how long temporary status screens remain visible. Default: `1200` ms.
 - `kLockScreenMs`: lock-screen display duration. Default: `5000` ms.
 - `kAirCalibrationPercent`: oxygen percentage used for air calibration. Default: `20.9`.
+- `kDefaultMinPo2`: default selected working pO2 at startup. Default: `1.40`.
 - `kDefaultMaxPo2`: default maximum pO2 used in MOD calculations. Default: `1.60`.
 - `kMinValidCalibration` and `kMaxValidCalibration`: accepted calibration range guardrails.
 

@@ -37,7 +37,8 @@ struct CalibrationData {
 struct AnalyzerState {
   float calibrationValue = 0.0F;
   float resultMax = 0.0F;
-  float maxPo1 = 1.30F;
+  float maxPo1 = kDefaultMinPo2;
+  bool buzzerEnabled = kBuzzerEnabledByDefault;
   unsigned long millisHeld = 0;
   byte previousButtonState = HIGH;
   unsigned long firstPressTime = 0;
@@ -112,9 +113,12 @@ void handleSerialCommands();
 void dumpDisplayBuffer();
 int16_t roundToTenths(float value);
 int16_t roundToHundredths(float value);
+uint8_t menuIndexForHoldDuration(unsigned long heldDurationMs);
 uint8_t currentHoldMenu();
-void printUnsignedTenths(uint16_t value);
-void printUnsignedHundredths(uint16_t value);
+void runHoldMenuAction(uint8_t menuIndex);
+void po2_change();
+void buzzer_toggle();
+void max_clear();
 char *appendText(char *buffer, const char *text);
 char *appendTenthsText(char *buffer, uint16_t value);
 void formatTenthsText(uint16_t value, char *buffer, bool appendPercent = false);
@@ -127,15 +131,27 @@ DisplaySnapshot lastDisplaySnapshot;
 Adafruit_ADS1115 ads;
 Adafruit_SSD1306 display(kScreenWidth, kScreenHeight, &Wire, kOledReset);
 
+constexpr unsigned long kMsPerSecond = 1000;
+constexpr unsigned long kMenuEntryHoldMs = kMenuEntryHoldSeconds * kMsPerSecond;
+constexpr unsigned long kButtonDebounceMs = 200;
+constexpr unsigned long kUiRefreshIntervalMs = 200;
+constexpr unsigned long kPausePollMs = 10;
+constexpr uint8_t kHoldMenuItemCount = 4;
+
+static_assert(kMenuStepIntervalMs > 0, "kMenuStepIntervalMs must be greater than 0");
+
 /*
  Calculate MOD (Maximum Operating Depth)
 */
-const float max_po2 = kDefaultMaxPo2;
 float cal_mod (float percentage, float ppo2 = 1.4) {
   return 10 * ( (ppo2/(percentage/100)) - 1 );
 }
 
 void beep(int x=1) { // make beep for x time
+  if (!state.buzzerEnabled) {
+    return;
+  }
+
   for(int i=0; i<x; i++) {
       tone(kBuzzerPin, 2800, 100);
       pauseWithPolling(200);
@@ -214,36 +230,36 @@ int16_t roundToHundredths(float value) {
   return static_cast<int16_t>(scaled >= 0.0F ? scaled + 0.5F : scaled - 0.5F);
 }
 
-uint8_t currentHoldMenu() {
-  if (state.activeFrames <= 16 || state.millisHeld >= kMenuTimeoutMs) {
+uint8_t menuIndexForHoldDuration(unsigned long heldDurationMs) {
+  constexpr uint8_t kMenuCycleSlots = kHoldMenuItemCount + 1;
+
+  if (heldDurationMs < kMenuEntryHoldMs) {
     return 0;
   }
-  if (state.millisHeld >= kCalHoldTimeMs && state.millisHeld < kModHoldTimeMs) {
-    return 1;
+
+  const unsigned long menuElapsedMs = heldDurationMs - kMenuEntryHoldMs;
+  const uint8_t cycleSlot = static_cast<uint8_t>((menuElapsedMs / kMenuStepIntervalMs) % kMenuCycleSlots);
+  if (cycleSlot == kHoldMenuItemCount) {
+    return 0;
   }
-  if (state.millisHeld >= kModHoldTimeMs && state.millisHeld < kMaxHoldTimeMs) {
-    return 2;
-  }
-  if (state.millisHeld >= kMaxHoldTimeMs && state.millisHeld < kActionTimeoutMs) {
-    return 3;
-  }
-  return 0;
+
+  return cycleSlot + 1;
 }
 
-void printUnsignedTenths(uint16_t value) {
-  display.print(value / 10);
-  display.print('.');
-  display.print(value % 10);
+uint8_t currentHoldMenu() {
+  return menuIndexForHoldDuration(state.millisHeld);
 }
 
-void printUnsignedHundredths(uint16_t value) {
-  display.print(value / 100);
-  display.print('.');
-  const uint8_t fractional = value % 100;
-  if (fractional < 10) {
-    display.print('0');
+void runHoldMenuAction(uint8_t menuIndex) {
+  if (menuIndex == 1) {
+    state.calibrationValue = calibrate();
+  } else if (menuIndex == 2) {
+    po2_change();
+  } else if (menuIndex == 3) {
+    buzzer_toggle();
+  } else if (menuIndex == 4) {
+    max_clear();
   }
-  display.print(fractional);
 }
 
 char *appendText(char *buffer, const char *text) {
@@ -431,7 +447,7 @@ void analyze() {
   if (result > 99.9) result = 99.9;
 
   snapshot.initialized = true;
-  snapshot.sensorError = mv < 0.06 || result <= 0;
+  snapshot.sensorError = mv < kMinValidMillivolts || result <= 0;
   snapshot.resultTenths = roundToTenths(result);
   snapshot.mvHundredths = roundToHundredths(mv);
   snapshot.maxPo1Tenths = roundToTenths(state.maxPo1);
@@ -465,7 +481,7 @@ void analyze() {
 
     snapshot.resultMaxTenths = roundToTenths(state.resultMax);
     snapshot.modPrimaryTenths = roundToTenths(cal_mod(result, state.maxPo1));
-    snapshot.modSecondaryTenths = roundToTenths(cal_mod(result, max_po2));
+    snapshot.modSecondaryTenths = roundToTenths(cal_mod(result, kDefaultMaxPo2));
 
     if (lastDisplaySnapshot.initialized &&
         !lastDisplaySnapshot.sensorError &&
@@ -513,7 +529,7 @@ void analyze() {
   char *po2LineEnd = appendText(po2Line, "pO2 ");
   po2LineEnd = appendTenthsText(po2LineEnd, snapshot.maxPo1Tenths);
   po2LineEnd = appendText(po2LineEnd, "/");
-  po2LineEnd = appendTenthsText(po2LineEnd, roundToTenths(max_po2));
+  po2LineEnd = appendTenthsText(po2LineEnd, roundToTenths(kDefaultMaxPo2));
   appendText(po2LineEnd, " MOD");
   drawCenteredText(po2Line, 40);
 
@@ -532,6 +548,8 @@ void analyze() {
     } else if (snapshot.holdMenu == 2) {
       drawHoldMenuLabel("PO2");
     } else if (snapshot.holdMenu == 3) {
+      drawHoldMenuLabel("BUZ");
+    } else if (snapshot.holdMenu == 4) {
       drawHoldMenuLabel("MAX");
     }
     display.display();
@@ -558,9 +576,13 @@ void lock_screen(unsigned long pause = kLockScreenMs) {
 }
 
 void po2_change() {
-  if (state.maxPo1 == 1.3) state.maxPo1 = 1.4;
-  else if (state.maxPo1 == 1.4) state.maxPo1 = 1.5;
-  else if (state.maxPo1 == 1.5) state.maxPo1 = 1.3;
+  if (state.maxPo1 == 1.3F) {
+    state.maxPo1 = 1.4F;
+  } else if (state.maxPo1 == 1.4F) {
+    state.maxPo1 = 1.5F;
+  } else {
+    state.maxPo1 = 1.3F;
+  }
 
   display.clearDisplay();
   display.setTextColor(WHITE);
@@ -571,6 +593,26 @@ void po2_change() {
   drawCenteredText(po2Text, 34);
   display.display();
   beep(1);
+  pauseWithPolling(kStatusScreenMs);
+  invalidateDisplaySnapshot();
+  state.activeFrames = 0;
+}
+
+void buzzer_toggle() {
+  state.buzzerEnabled = !state.buzzerEnabled;
+
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.setFont(&FreeSans9pt7bSubset);
+  display.setTextSize(1);
+  drawCenteredText("Buzzer", 22);
+  drawCenteredText(state.buzzerEnabled ? "Enabled" : "Disabled", 47);
+  display.display();
+
+  if (state.buzzerEnabled) {
+    beep(1);
+  }
+
   pauseWithPolling(kStatusScreenMs);
   invalidateDisplaySnapshot();
   state.activeFrames = 0;
@@ -602,25 +644,20 @@ void loop(void) {
     state.activeFrames = 17;
   }
 
-  state.millisHeld = now - state.firstPressTime;
-  if (state.millisHeld > 2) {
-    if (current == HIGH && state.previousButtonState == LOW) {
-      if (state.millisHeld < kCalHoldTimeMs) {
+  const unsigned long releasedHoldMs = (current == HIGH && state.previousButtonState == LOW)
+      ? (now - state.firstPressTime)
+      : 0;
+  state.millisHeld = (current == LOW) ? (now - state.firstPressTime) : 0;
+
+  if (releasedHoldMs > 2) {
+    if (releasedHoldMs < kMenuEntryHoldMs) {
         lock_screen();
-      }
-      if (state.millisHeld >= kCalHoldTimeMs &&
-          state.millisHeld < kModHoldTimeMs) {
-        state.calibrationValue = calibrate();
-      }
-      if (state.millisHeld >= kModHoldTimeMs &&
-          state.millisHeld < kMaxHoldTimeMs) {
-        po2_change();
-      }
-      if (state.millisHeld >= kMaxHoldTimeMs &&
-          state.millisHeld < kActionTimeoutMs) {
-        max_clear();
-      }
+    } else {
+      runHoldMenuAction(menuIndexForHoldDuration(releasedHoldMs));
     }
+
+    state.millisHeld = 0;
+    state.firstPressTime = now;
   }
 
   state.previousButtonState = current;
