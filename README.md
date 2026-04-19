@@ -118,14 +118,18 @@ o2-analyzer/
 │   ├── oled-arduino-nitrox-analyzer.png
 │   └── oled_screenshot_*.png
 ├── include/
+│   ├── display_ui.h
 │   ├── FreeSans9pt7bSubset.h
 │   ├── FreeSansBold18pt7bSubset.h
 │   └── settings.h
 ├── hardware/
+  ├── display_ui.cpp
 │   ├── 3d-models/
 │   └── assembly/
 │       └── README.md
 └── src/
+- [src/display_ui.cpp](src/display_ui.cpp): OLED rendering and text/layout helpers
+- [include/display_ui.h](include/display_ui.h): display snapshot model and rendering function declarations
     └── main.cpp
 ```
 

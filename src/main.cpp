@@ -25,6 +25,7 @@
 #include <Adafruit_SSD1306.h>
 #include "FreeSansBold18pt7bSubset.h"
 #include "FreeSans9pt7bSubset.h"
+#include "display_ui.h"
 #include "settings.h"
 #include <Adafruit_ADS1X15.h>
 #include <EEPROM.h>
@@ -86,19 +87,6 @@ struct SensorAverage {
   }
 };
 
-struct DisplaySnapshot {
-  bool initialized = false;
-  bool sensorError = false;
-  int16_t resultTenths = 0;
-  int16_t resultMaxTenths = 0;
-  int16_t mvHundredths = 0;
-  int16_t maxPo1Tenths = 0;
-  int16_t modPrimaryTenths = 0;
-  int16_t modSecondaryTenths = 0;
-  bool blinkVisible = false;
-  uint8_t holdMenu = 0;
-};
-
 int calibrate();
 bool readCalibration(float &value);
 void writeCalibration(uint16_t value);
@@ -106,9 +94,7 @@ bool isCalibrationValid(float value);
 void pauseWithPolling(unsigned long durationMs);
 void readSensor();
 void analyze();
-void drawHoldMenuLabel(const char *label);
 void invalidateDisplaySnapshot();
-void drawCenteredText(const char *text, int16_t baselineY);
 void handleSerialCommands();
 void dumpDisplayBuffer();
 int16_t roundToTenths(float value);
@@ -119,10 +105,6 @@ void runHoldMenuAction(uint8_t menuIndex);
 void po2_change();
 void buzzer_toggle();
 void max_clear();
-char *appendText(char *buffer, const char *text);
-char *appendTenthsText(char *buffer, uint16_t value);
-void formatTenthsText(uint16_t value, char *buffer, bool appendPercent = false);
-void formatHundredthsText(uint16_t value, char *buffer, const char *prefix = nullptr);
 
 SensorAverage sensorAverage;
 AnalyzerState state;
@@ -137,7 +119,6 @@ constexpr unsigned long kButtonDebounceMs = 200;
 constexpr unsigned long kUiRefreshIntervalMs = 200;
 constexpr unsigned long kPausePollMs = 10;
 constexpr uint8_t kHoldMenuItemCount = 4;
-static_assert(kHoldMenuItemCount == 4, "kHoldMenuLabels switch must be updated to match kHoldMenuItemCount");
 static_assert(kMenuStepIntervalMs > 0, "kMenuStepIntervalMs must be greater than 0");
 
 /*
@@ -194,28 +175,6 @@ void readSensor() {
   sensorAverage.addValue(millivolts);
 }
 
-void drawCenteredText(const char *text, int16_t baselineY) {
-  int16_t x1 = 0;
-  int16_t y1 = 0;
-  uint16_t width = 0;
-  uint16_t height = 0;
-  display.getTextBounds(text, 0, baselineY, &x1, &y1, &width, &height);
-  display.setCursor(((kScreenWidth - static_cast<int16_t>(width)) / 2) - x1, baselineY);
-  display.print(text);
-}
-
-void drawHoldMenuLabel(const char *label) {
-  constexpr int kMenuX = 0;
-  constexpr int kMenuY = 31;
-  constexpr int kMenuWidth = 128;
-  constexpr int kMenuHeight = 16;
-
-  display.fillRect(kMenuX, kMenuY, kMenuWidth, kMenuHeight, WHITE);
-  display.setTextSize(2);
-  display.setTextColor(BLACK, WHITE);
-  drawCenteredText(label, kMenuY);
-}
-
 void invalidateDisplaySnapshot() {
   lastDisplaySnapshot.initialized = false;
 }
@@ -262,70 +221,6 @@ void runHoldMenuAction(uint8_t menuIndex) {
   }
 }
 
-char *appendText(char *buffer, const char *text) {
-  while (*text != '\0') {
-    *buffer++ = *text++;
-  }
-  *buffer = '\0';
-  return buffer;
-}
-
-char *appendTenthsText(char *buffer, uint16_t value) {
-  formatTenthsText(value, buffer, false);
-  while (*buffer != '\0') {
-    ++buffer;
-  }
-  return buffer;
-}
-
-void formatTenthsText(uint16_t value, char *buffer, bool appendPercent) {
-  uint16_t whole = value / 10;
-  const uint8_t fractional = value % 10;
-  char digits[5] = {};
-  uint8_t digitCount = 0;
-
-  do {
-    digits[digitCount++] = static_cast<char>('0' + (whole % 10));
-    whole /= 10;
-  } while (whole > 0);
-
-  for (int8_t i = digitCount - 1; i >= 0; --i) {
-    *buffer++ = digits[i];
-  }
-  *buffer++ = '.';
-  *buffer++ = static_cast<char>('0' + fractional);
-  if (appendPercent) {
-    *buffer++ = '%';
-  }
-  *buffer = '\0';
-}
-
-void formatHundredthsText(uint16_t value, char *buffer, const char *prefix) {
-  if (prefix != nullptr) {
-    while (*prefix != '\0') {
-      *buffer++ = *prefix++;
-    }
-  }
-
-  uint16_t whole = value / 100;
-  const uint8_t fractional = value % 100;
-  char digits[5] = {};
-  uint8_t digitCount = 0;
-
-  do {
-    digits[digitCount++] = static_cast<char>('0' + (whole % 10));
-    whole /= 10;
-  } while (whole > 0);
-
-  for (int8_t i = digitCount - 1; i >= 0; --i) {
-    *buffer++ = digits[i];
-  }
-  *buffer++ = '.';
-  *buffer++ = static_cast<char>('0' + (fractional / 10));
-  *buffer++ = static_cast<char>('0' + (fractional % 10));
-  *buffer = '\0';
-}
-
 bool isCalibrationValid(float value) {
   return value >= kMinValidCalibration && value <= kMaxValidCalibration;
 }
@@ -361,18 +256,7 @@ void setup(void) {
     for(;;); // Don't proceed, loop forever
   }
 
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-
-  display.setFont(&FreeSans9pt7bSubset);
-  display.setTextSize(1);
-  drawCenteredText("Nitrox", 18);
-  drawCenteredText("Analyzer", 36);
-
-  display.setFont();
-  display.setTextSize(1);
-  drawCenteredText(VERSION, 48);
-  display.display();
+  renderStartupScreen(display, VERSION);
   invalidateDisplaySnapshot();
 
   delay(2000); // Pause for 2 seconds
@@ -395,13 +279,7 @@ void setup(void) {
 }
 
 int calibrate() {
-
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setFont(&FreeSans9pt7bSubset);
-  display.setTextSize(1);
-  drawCenteredText("Calibrate", 34);
-  display.display();
+  renderCalibrationScreen(display);
 
   sensorAverage.clear();
   float result;
@@ -462,19 +340,8 @@ void analyze() {
     }
 
     lastDisplaySnapshot = snapshot;
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-    display.setFont(&FreeSans9pt7bSubset);
-    display.setTextSize(1);
-    drawCenteredText("Sensor", 22);
-    drawCenteredText("Error!", 47);
-    display.display();
+    renderSensorErrorScreen(display);
   } else {
-    char maxLine[24] = {};
-    char po2Line[20] = {};
-    char modLine[16] = {};
-    char resultText[8] = {};
-
     if (result >= state.resultMax) {
       state.resultMax = result;
     }
@@ -495,74 +362,14 @@ void analyze() {
         lastDisplaySnapshot.holdMenu == snapshot.holdMenu) {
       return;
     }
-
     lastDisplaySnapshot = snapshot;
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-
-    display.setFont(&FreeSansBold18pt7bSubset);
-    display.setTextSize(1);
-    formatTenthsText(snapshot.resultTenths, resultText, true);
-    drawCenteredText(resultText, 28);
-    display.setFont();
-
-    display.setTextSize(1);
-    display.fillRect(0, 31, kScreenWidth, 8, WHITE);
-    display.setTextColor(BLACK, WHITE);
-    char *maxLineEnd = appendText(maxLine, "Max ");
-    maxLineEnd = appendTenthsText(maxLineEnd, snapshot.resultMaxTenths);
-    maxLineEnd = appendText(maxLineEnd, "% ");
-    formatHundredthsText(snapshot.mvHundredths, maxLineEnd);
-    while (*maxLineEnd != '\0') {
-      ++maxLineEnd;
-    }
-    appendText(maxLineEnd, "mv");
-    drawCenteredText(maxLine, 31);
-
-    if (state.activeFrames % 4) {
-      display.setCursor(118,10);
-      display.setTextColor(WHITE);
-      display.print(F("."));
-    }
-
-    display.setTextColor(WHITE);
-  char *po2LineEnd = appendText(po2Line, "pO2 ");
-  po2LineEnd = appendTenthsText(po2LineEnd, snapshot.maxPo1Tenths);
-  po2LineEnd = appendText(po2LineEnd, "/");
-  po2LineEnd = appendTenthsText(po2LineEnd, roundToTenths(kDefaultMaxPo2));
-  appendText(po2LineEnd, " MOD");
-  drawCenteredText(po2Line, 40);
-
-    display.setFont(&FreeSans9pt7bSubset);
-    display.setTextSize(1);
-  char *modLineEnd = appendTenthsText(modLine, snapshot.modPrimaryTenths);
-  modLineEnd = appendText(modLineEnd, "/");
-  modLineEnd = appendTenthsText(modLineEnd, snapshot.modSecondaryTenths);
-  appendText(modLineEnd, "M");
-  drawCenteredText(modLine, 63);
-    display.setFont();
-
-    // Show menu labels only after the display has settled to reduce flicker.
-    if (snapshot.holdMenu == 1) {
-      drawHoldMenuLabel("CAL");
-    } else if (snapshot.holdMenu == 2) {
-      drawHoldMenuLabel("PO2");
-    } else if (snapshot.holdMenu == 3) {
-      drawHoldMenuLabel("BUZ");
-    } else if (snapshot.holdMenu == 4) {
-      drawHoldMenuLabel("MAX");
-    }
-    display.display();
+    renderAnalyzerScreen(display, snapshot);
   }
 }
 
 void lock_screen(unsigned long pause = kLockScreenMs) {
   beep(1);
-  display.setTextSize(1);
-  display.fillRect(0, 31, kScreenWidth, 8, WHITE);
-  display.setTextColor(BLACK, WHITE);
-  drawCenteredText("LOCK", 31);
-  display.display();
+  renderLockScreen(display);
   const unsigned long startMs = millis();
   while ((millis() - startMs) < pause) {
     if (digitalRead(kButtonPin) == LOW) {
@@ -580,15 +387,7 @@ void po2_change() {
   state.maxPo1 = (t == roundToTenths(1.3F)) ? 1.4F : (t == roundToTenths(1.4F)) ? 1.5F : 1.3F;
   const uint16_t newTenths = static_cast<uint16_t>(roundToTenths(state.maxPo1));
 
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setFont(&FreeSans9pt7bSubset);
-  display.setTextSize(1);
-  char po2Text[10] = {};
-  char *po2End = appendText(po2Text, "pO2: ");
-  formatTenthsText(newTenths, po2End);
-  drawCenteredText(po2Text, 34);
-  display.display();
+  renderPo2Screen(display, newTenths);
   beep(1);
   pauseWithPolling(kStatusScreenMs);
   invalidateDisplaySnapshot();
@@ -598,13 +397,7 @@ void po2_change() {
 void buzzer_toggle() {
   state.buzzerEnabled = !state.buzzerEnabled;
 
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setFont(&FreeSans9pt7bSubset);
-  display.setTextSize(1);
-  drawCenteredText("Buzzer", 22);
-  drawCenteredText(state.buzzerEnabled ? "Enabled" : "Disabled", 47);
-  display.display();
+  renderBuzzerScreen(display, state.buzzerEnabled);
 
   if (state.buzzerEnabled) {
     beep(1);
@@ -617,13 +410,7 @@ void buzzer_toggle() {
 
 void max_clear() {
   state.resultMax = 0;
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setFont(&FreeSans9pt7bSubset);
-  display.setTextSize(1);
-  drawCenteredText("Max Result", 22);
-  drawCenteredText("Cleared", 47);
-  display.display();
+  renderMaxClearedScreen(display);
   beep(1);
   pauseWithPolling(kStatusScreenMs);
   invalidateDisplaySnapshot();
