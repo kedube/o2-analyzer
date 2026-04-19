@@ -59,7 +59,7 @@ Connection details, based on the original wiring notes:
 The OLED and ADS1115 share the same I2C bus, so both modules connect to the Nano's `A4`/`SDA` and `A5`/`SCL` pins.
 
 The original ejlabs notes also caution that a `9V` battery is a poor long-term power choice for Arduino projects and that reverse polarity on `VIN` can damage the onboard regulator.
-
+## Project Layout
 ## Enclosure And 3D Files
 
 The printable enclosure is based on Tony Land's Divetech nitrox analyzer housing and was remixed to fit commonly available `0.96"` `128x64` OLED modules whose display glass is larger than the original front-panel cutout.
@@ -78,14 +78,8 @@ Local hardware references in this repository:
 ## Bill Of Materials
 
 The Printables model lists these parts for the physical build:
-
-- Arduino Nano
-- `0.96"` `128x64` OLED display
-- ADS1115 analog-to-digital converter
-- Rocker switch, `13 x 19 mm` panel mount
-- Push button, `12 mm` diameter
-- `9 mm` electronic buzzer
-- `6` M3x10 mm hex-head screws
+│       ├── assembly-[1-7].jpg
+│       ├── assembly-8.png
 - `4` M2x10 mm hex-head screws
 - Molex terminals
 - `9V` battery clip connector
@@ -105,38 +99,50 @@ The Printables model lists these parts for the physical build:
 
 ```text
 o2-analyzer/
-├── LICENSE
-├── README.md
-├── platformio.ini
-├── tools/
-│   └── oled_capture.py
+├── .gitignore
+├── hardware/
+│   ├── 3d-models/
+│   │   ├── back_cap.stl
+│   │   ├── back_half.stl
+│   │   ├── battery-sensor_cover.stl
+│   │   ├── flow_restrictor.stl
+│   │   ├── flow_restrictor_10mm.stl
+│   │   ├── flow_restrictor_115mm.stl
+│   │   ├── flow_restrictor_12mm.stl
+│   │   ├── flow_restrictor_95mm.stl
+│   │   ├── flow_restrictor_9mm.stl
+│   │   ├── front_half_v2.stl
+│   │   └── front_upper_cover.stl
+│   └── assembly/
+│       ├── assembly-[1-7].jpg
+│       ├── assembly-8.png
+│       └── README.md
 ├── images/
-│   ├── nitrox_analyzer-1.jpeg
-│   ├── nitrox_analyzer-2.jpeg
-│   ├── nitrox_analyzer-3.jpeg
-│   ├── nitrox_analyzer-4.jpeg
+│   ├── nitrox_analyzer-[1-5].jpeg
 │   ├── oled-arduino-nitrox-analyzer.png
-│   └── oled_screenshot_*.png
+│   └── oled_screenshot_[1-8].png
 ├── include/
 │   ├── display_ui.h
 │   ├── FreeSans9pt7bSubset.h
 │   ├── FreeSansBold18pt7bSubset.h
 │   └── settings.h
-├── hardware/
-  ├── display_ui.cpp
-│   ├── 3d-models/
-│   └── assembly/
-│       └── README.md
-└── src/
-- [src/display_ui.cpp](src/display_ui.cpp): OLED rendering and text/layout helpers
-- [include/display_ui.h](include/display_ui.h): display snapshot model and rendering function declarations
-    └── main.cpp
+├── LICENSE
+├── platformio.ini
+├── README.md
+├── src/
+│   ├── display_ui.cpp
+│   └── main.cpp
+└── tools/
+    └── oled_capture.py
 ```
 
+- [src/display_ui.cpp](src/display_ui.cpp): OLED rendering and text/layout helpers
+- [include/display_ui.h](include/display_ui.h): display snapshot model and rendering function declarations
 - [src/main.cpp](src/main.cpp): firmware logic, UI rendering, button handling, calibration, and sensor processing
 - [include/FreeSans9pt7bSubset.h](include/FreeSans9pt7bSubset.h): subset small UI font
 - [include/FreeSansBold18pt7bSubset.h](include/FreeSansBold18pt7bSubset.h): subset large percentage font
 - [include/settings.h](include/settings.h): firmware configuration constants for pins, timings, display settings, and calibration defaults
+- [.gitignore](.gitignore): ignores PlatformIO build outputs, editor settings, and macOS metadata
 - [hardware/assembly/README.md](hardware/assembly/README.md): assembly image gallery
 - [hardware/3d-models](hardware/3d-models): printable enclosure and accessory STL files
 - [platformio.ini](platformio.ini): PlatformIO target, libraries, and build flags
