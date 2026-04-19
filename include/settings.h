@@ -31,5 +31,5 @@ constexpr double kMinValidMillivolts = 0.05;
 constexpr double kAirCalibrationPercent = 20.9;
 
 constexpr float kAdsMultiplier = 0.0625F;
-constexpr float kDefaultMinPo2 = 1.40F;
-constexpr float kDefaultMaxPo2 = 1.60F;
+constexpr float kDefaultMinPo2 = 1.4F;
+constexpr float kDefaultMaxPo2 = 1.6F;

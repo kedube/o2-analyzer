@@ -137,7 +137,7 @@ constexpr unsigned long kButtonDebounceMs = 200;
 constexpr unsigned long kUiRefreshIntervalMs = 200;
 constexpr unsigned long kPausePollMs = 10;
 constexpr uint8_t kHoldMenuItemCount = 4;
-
+static_assert(kHoldMenuItemCount == 4, "kHoldMenuLabels switch must be updated to match kHoldMenuItemCount");
 static_assert(kMenuStepIntervalMs > 0, "kMenuStepIntervalMs must be greater than 0");
 
 /*
@@ -576,20 +576,17 @@ void lock_screen(unsigned long pause = kLockScreenMs) {
 }
 
 void po2_change() {
-  if (state.maxPo1 == 1.3F) {
-    state.maxPo1 = 1.4F;
-  } else if (state.maxPo1 == 1.4F) {
-    state.maxPo1 = 1.5F;
-  } else {
-    state.maxPo1 = 1.3F;
-  }
+  const int16_t t = roundToTenths(state.maxPo1);
+  state.maxPo1 = (t == roundToTenths(1.3F)) ? 1.4F : (t == roundToTenths(1.4F)) ? 1.5F : 1.3F;
+  const uint16_t newTenths = static_cast<uint16_t>(roundToTenths(state.maxPo1));
 
   display.clearDisplay();
   display.setTextColor(WHITE);
   display.setFont(&FreeSans9pt7bSubset);
   display.setTextSize(1);
-  char po2Text[12] = {};
-  formatHundredthsText(static_cast<uint16_t>(state.maxPo1 * 100.0F + 0.5F), po2Text, "pO2: ");
+  char po2Text[10] = {};
+  char *po2End = appendText(po2Text, "pO2: ");
+  formatTenthsText(newTenths, po2End);
   drawCenteredText(po2Text, 34);
   display.display();
   beep(1);

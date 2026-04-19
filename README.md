@@ -100,7 +100,6 @@ The Printables model lists these parts for the physical build:
 o2-analyzer/
 ├── LICENSE
 ├── README.md
-├── RELEASE_NOTES_0.25.md
 ├── platformio.ini
 ├── tools/
 │   └── oled_capture.py
