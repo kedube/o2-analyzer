@@ -59,7 +59,7 @@ Connection details, based on the original wiring notes:
 The OLED and ADS1115 share the same I2C bus, so both modules connect to the Nano's `A4`/`SDA` and `A5`/`SCL` pins.
 
 The original ejlabs notes also caution that a `9V` battery is a poor long-term power choice for Arduino projects and that reverse polarity on `VIN` can damage the onboard regulator.
-## Project Layout
+
 ## Enclosure And 3D Files
 
 The printable enclosure is based on Tony Land's Divetech nitrox analyzer housing and was remixed to fit commonly available `0.96"` `128x64` OLED modules whose display glass is larger than the original front-panel cutout.
@@ -77,15 +77,21 @@ Local hardware references in this repository:
 
 ## Bill Of Materials
 
-The Printables model lists these parts for the physical build:
-│       ├── assembly-[1-7].jpg
-│       ├── assembly-8.png
+The Printables model lists these materials for the physical build, with example source links for several parts:
+
+- [Arduino Nano](https://a.co/d/hmOA4fG)
+- [`.96 inch` `128x64` OLED screen](https://a.co/d/fV3mk5q)
+- [ADS1115 analog-to-digital converter](https://a.co/d/guoRf2Z)
+- [Rocker switch](https://a.co/d/8EYTpxj), `13 x 19 mm` panel mount
+- [Push button](https://a.co/d/2yPEBGB), `12 mm` diameter
+- [`9 mm` electronic buzzer](https://a.co/d/0gzqU7lq)
+- `6` M3x10 mm hex-head screws
 - `4` M2x10 mm hex-head screws
 - Molex terminals
-- `9V` battery clip connector
+- [`9V` battery clip connector](https://a.co/d/7T9FWCe)
 - `9V` battery
-- Oxygen sensor
-- Hook-up wire and solder
+- O2 sensor (with Molex 3-Pin Connector)
+- Wire and solder
 
 ## Button Actions
 
@@ -144,12 +150,6 @@ o2-analyzer/
 - [include/settings.h](include/settings.h): firmware configuration constants for pins, timings, display settings, and calibration defaults
 - [.gitignore](.gitignore): ignores PlatformIO build outputs, editor settings, and macOS metadata
 - [hardware/assembly/README.md](hardware/assembly/README.md): assembly image gallery
-- `4` M2x10 mm hex-head screws
-- Molex terminals
-- `9V` battery clip connector
-- `9V` battery
-- Oxygen sensor
-- Hook-up wire and solder
 - [hardware/3d-models](hardware/3d-models): printable enclosure and accessory STL files
 - [platformio.ini](platformio.ini): PlatformIO target, libraries, and build flags
 - [tools/oled_capture.py](tools/oled_capture.py): converts a captured SSD1306 framebuffer dump into a PNG image
@@ -168,6 +168,8 @@ monitor_speed = 9600
 upload_speed = 115200
 build_flags =
   -D SSD1306_NO_SPLASH
+  -D SERIAL_RX_BUFFER_SIZE=16
+  -D SERIAL_TX_BUFFER_SIZE=16
 lib_deps =
   adafruit/Adafruit GFX Library @ ^1.12.6
   adafruit/Adafruit SSD1306 @ ^2.5.16
@@ -232,6 +234,7 @@ Common options you may want to change in [platformio.ini](platformio.ini):
 - `upload_speed`: sets the upload baud rate. The current value is `115200`.
 - `upload_port`: optional manual serial port override if auto-detection fails.
 - `build_flags`: compile-time defines passed to the build. `SSD1306_NO_SPLASH` is enabled to save flash.
+- `SERIAL_RX_BUFFER_SIZE` and `SERIAL_TX_BUFFER_SIZE`: reduced to `16` bytes to preserve SRAM for the SSD1306 framebuffer on the ATmega328P.
 - `lib_deps`: PlatformIO-managed library dependencies.
 
 Example manual serial port configuration:
@@ -251,7 +254,8 @@ Hardware and behavior settings are defined in [include/settings.h](include/setti
 - `kButtonPin`: button input pin. Default: `2`.
 - `kBuzzerPin`: buzzer output pin. Default: `3`.
 - `kBuzzerEnabledByDefault`: sets whether the buzzer starts enabled after boot. Default: `true`.
-- `kModInFeetByDefault`: sets whether MOD values default to feet instead of meters. Default: `false`.
+- `kBootDebugLogging`: enables verbose startup logging over serial for boot diagnostics. Default: `false`.
+- `kModInFeetByDefault`: sets whether MOD values default to feet instead of meters. Default: `true`.
 - `kSerialBaudRate`: serial monitor and screenshot capture baud rate. Default: `9600`.
 - `kScreenshotCommand`: serial command character used to request a display dump. Default: `s`.
 - `kOledReset`: OLED reset pin passed to the display driver. Default: `4`.
