@@ -23,12 +23,12 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Adafruit_ADS1X15.h>
+#include <EEPROM.h>
 #include "FreeSansBold18pt7bSubset.h"
 #include "FreeSans9pt7bSubset.h"
 #include "display_ui.h"
 #include "settings.h"
-#include <Adafruit_ADS1X15.h>
-#include <EEPROM.h>
 
 struct CalibrationData {
   uint8_t magic;
@@ -139,14 +139,14 @@ float calculateModDepth(float percentage, float ppo2 = 1.4F) {
   return depthMeters * kFeetPerMeter;
 }
 
-void beep(int x=1) { // make beep for x time
+void beep(int x = 1) {  // make beep for x time
   if (!state.buzzerEnabled) {
     return;
   }
 
-  for(int i=0; i<x; i++) {
-      tone(kBuzzerPin, 2800, 100);
-      pauseWithPolling(200);
+  for (int i = 0; i < x; i++) {
+    tone(kBuzzerPin, 2800, 100);
+    pauseWithPolling(200);
   }
   noTone(kBuzzerPin);
 }
@@ -161,7 +161,8 @@ void pauseWithPolling(unsigned long durationMs) {
 
 void dumpDisplayBuffer() {
   const uint8_t *buffer = display.getBuffer();
-  const size_t bufferSize = static_cast<size_t>(kScreenWidth) * static_cast<size_t>(kScreenHeight) / 8U;
+  const size_t bufferSize =
+      static_cast<size_t>(kScreenWidth) * static_cast<size_t>(kScreenHeight) / 8U;
 
   Serial.print(F("OLED_FRAME "));
   Serial.print(kScreenWidth);
@@ -208,7 +209,8 @@ uint8_t menuIndexForHoldDuration(unsigned long heldDurationMs) {
   }
 
   const unsigned long menuElapsedMs = heldDurationMs - kMenuEntryHoldMs;
-  const uint8_t cycleSlot = static_cast<uint8_t>((menuElapsedMs / kMenuStepIntervalMs) % kMenuCycleSlots);
+  const uint8_t cycleSlot =
+      static_cast<uint8_t>((menuElapsedMs / kMenuStepIntervalMs) % kMenuCycleSlots);
   if (cycleSlot == kHoldMenuItemCount) {
     return 0;
   }
@@ -266,9 +268,10 @@ void setup(void) {
   Serial.println(F("BOOT: serial"));
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-  if(!display.begin(SSD1306_SWITCHCAPVCC, kScreenAddress)) {
+  if (!display.begin(SSD1306_SWITCHCAPVCC, kScreenAddress)) {
     Serial.println(F("BOOT: oled fail"));
-    for(;;); // Don't proceed, loop forever
+    for (;;) {
+    }  // Don't proceed, loop forever
   }
   Serial.println(F("BOOT: oled ok"));
 
@@ -282,11 +285,11 @@ void setup(void) {
   ads.begin(); // ads1115 start
   Serial.println(F("BOOT: ads ok"));
 
-  pinMode(kButtonPin,INPUT_PULLUP);
+  pinMode(kButtonPin, INPUT_PULLUP);
 
-    sensorAverage.clear();
-  for(int cx=0; cx< kRaSize; cx++) {
-     readSensor();
+  sensorAverage.clear();
+  for (int cx = 0; cx < kRaSize; cx++) {
+    readSensor();
   }
   Serial.println(F("BOOT: warmup ok"));
 
@@ -306,8 +309,8 @@ int calibrate() {
   renderCalibrationScreen(display);
 
   sensorAverage.clear();
-  float result;
-  for(int cx=0; cx< kRaSize; cx++) {
+  float result = 0.0F;
+  for (int cx = 0; cx < kRaSize; cx++) {
     readSensor();
   }
   result = sensorAverage.average();
@@ -346,7 +349,9 @@ void analyze() {
   } else {
     result = (currentmv / state.calibrationValue) * kAirCalibrationPercent;
   }
-  if (result > 99.9) result = 99.9;
+  if (result > 99.9F) {
+    result = 99.9F;
+  }
 
   snapshot.initialized = true;
   snapshot.sensorError = mv < kMinValidMillivolts || result <= 0;
@@ -373,7 +378,8 @@ void analyze() {
 
     snapshot.resultMaxTenths = roundToTenths(state.resultMax);
     snapshot.modPrimaryTenths = roundToTenths(calculateModDepth(result, state.maxPo1));
-    snapshot.modSecondaryTenths = roundToTenths(calculateModDepth(result, kDefaultMaxPo2));
+    snapshot.modSecondaryTenths =
+        roundToTenths(calculateModDepth(result, kDefaultMaxPo2));
 
     if (lastDisplaySnapshot.initialized &&
         !lastDisplaySnapshot.sensorError &&
@@ -381,7 +387,7 @@ void analyze() {
         lastDisplaySnapshot.resultMaxTenths == snapshot.resultMaxTenths &&
         lastDisplaySnapshot.mvHundredths == snapshot.mvHundredths &&
         lastDisplaySnapshot.maxPo1Tenths == snapshot.maxPo1Tenths &&
-      lastDisplaySnapshot.modInFeet == snapshot.modInFeet &&
+        lastDisplaySnapshot.modInFeet == snapshot.modInFeet &&
         lastDisplaySnapshot.modPrimaryTenths == snapshot.modPrimaryTenths &&
         lastDisplaySnapshot.modSecondaryTenths == snapshot.modSecondaryTenths &&
         lastDisplaySnapshot.blinkVisible == snapshot.blinkVisible &&
@@ -402,15 +408,16 @@ void lock_screen(unsigned long pause = kLockScreenMs) {
       break;
     }
     delay(kPausePollMs);
-   }
+  }
   invalidateDisplaySnapshot();
-   state.activeFrames = 0;
-   state.firstPressTime = millis();
+  state.activeFrames = 0;
+  state.firstPressTime = millis();
 }
 
 void po2_change() {
   const int16_t t = roundToTenths(state.maxPo1);
-  state.maxPo1 = (t == roundToTenths(1.3F)) ? 1.4F : (t == roundToTenths(1.4F)) ? 1.5F : 1.3F;
+  state.maxPo1 =
+      (t == roundToTenths(1.3F)) ? 1.4F : (t == roundToTenths(1.4F)) ? 1.5F : 1.3F;
   const uint16_t newTenths = static_cast<uint16_t>(roundToTenths(state.maxPo1));
 
   renderPo2Screen(display, newTenths);
@@ -457,21 +464,22 @@ void loop(void) {
   handleSerialCommands();
 
   const unsigned long now = millis();
-  int current = digitalRead(kButtonPin);
+  const int current = digitalRead(kButtonPin);
 
-  if (current == LOW && state.previousButtonState == HIGH && (now - state.firstPressTime) > kButtonDebounceMs) {
+  if (current == LOW && state.previousButtonState == HIGH &&
+      (now - state.firstPressTime) > kButtonDebounceMs) {
     state.firstPressTime = now;
     state.activeFrames = 17;
   }
 
   const unsigned long releasedHoldMs = (current == HIGH && state.previousButtonState == LOW)
-      ? (now - state.firstPressTime)
-      : 0;
+                                           ? (now - state.firstPressTime)
+                                           : 0;
   state.millisHeld = (current == LOW) ? (now - state.firstPressTime) : 0;
 
   if (releasedHoldMs > 2) {
     if (releasedHoldMs < kMenuEntryHoldMs) {
-        lock_screen();
+      lock_screen();
     } else {
       runHoldMenuAction(menuIndexForHoldDuration(releasedHoldMs));
     }

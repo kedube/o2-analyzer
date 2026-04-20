@@ -9,7 +9,8 @@
 namespace {
 
 constexpr uint8_t kHoldMenuItemCount = 5;
-constexpr const char *kHoldMenuLabels[kHoldMenuItemCount] = {"CAL", "PO2", "BUZ", "MOD", "MAX"};
+constexpr const char *kHoldMenuLabels[kHoldMenuItemCount] = {
+  "CAL", "PO2", "BUZ", "MOD", "MAX"};
 
 void drawCenteredText(Adafruit_SSD1306 &display, const char *text, int16_t baselineY) {
   int16_t x1 = 0;
@@ -157,7 +158,8 @@ void renderAnalyzerScreen(Adafruit_SSD1306 &display, const DisplaySnapshot &snap
   display.fillRect(0, 31, kScreenWidth, 8, WHITE);
   display.setTextColor(BLACK, WHITE);
   char *maxLineEnd = appendText(maxLine, "Max ");
-  maxLineEnd = appendTenthsText(maxLineEnd, static_cast<uint16_t>(snapshot.resultMaxTenths));
+  maxLineEnd =
+      appendTenthsText(maxLineEnd, static_cast<uint16_t>(snapshot.resultMaxTenths));
   maxLineEnd = appendText(maxLineEnd, "% ");
   formatHundredthsText(static_cast<uint16_t>(snapshot.mvHundredths), maxLineEnd);
   while (*maxLineEnd != '\0') {
@@ -174,17 +176,21 @@ void renderAnalyzerScreen(Adafruit_SSD1306 &display, const DisplaySnapshot &snap
 
   display.setTextColor(WHITE);
   char *po2LineEnd = appendText(po2Line, "pO2 ");
-  po2LineEnd = appendTenthsText(po2LineEnd, static_cast<uint16_t>(snapshot.maxPo1Tenths));
+    po2LineEnd =
+      appendTenthsText(po2LineEnd, static_cast<uint16_t>(snapshot.maxPo1Tenths));
   po2LineEnd = appendText(po2LineEnd, "/");
-  po2LineEnd = appendTenthsText(po2LineEnd, static_cast<uint16_t>(roundToTenths(kDefaultMaxPo2)));
+    po2LineEnd = appendTenthsText(
+      po2LineEnd, static_cast<uint16_t>(roundToTenths(kDefaultMaxPo2)));
   appendText(po2LineEnd, " MOD");
   drawCenteredText(display, po2Line, 40);
 
   display.setFont(&FreeSans9pt7bSubset);
   display.setTextSize(1);
-  char *modLineEnd = appendTenthsText(modLine, static_cast<uint16_t>(snapshot.modPrimaryTenths));
+    char *modLineEnd =
+      appendTenthsText(modLine, static_cast<uint16_t>(snapshot.modPrimaryTenths));
   modLineEnd = appendText(modLineEnd, "/");
-  modLineEnd = appendTenthsText(modLineEnd, static_cast<uint16_t>(snapshot.modSecondaryTenths));
+    modLineEnd =
+      appendTenthsText(modLineEnd, static_cast<uint16_t>(snapshot.modSecondaryTenths));
   appendText(modLineEnd, snapshot.modInFeet ? "FT" : "M");
   drawCenteredText(display, modLine, 61);
   display.setFont();
