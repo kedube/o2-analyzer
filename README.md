@@ -30,7 +30,7 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 - Smooths sensor readings with a lightweight local moving average
 - Displays live O2 percentage, max reading, sensor millivolts, and MOD values
 - Stores calibration data in EEPROM so it survives power cycles
-- Uses a single button hold-menu for lock, calibration, pO2 selection, buzzer toggle, and max-clear actions
+- Uses a single button hold-menu for lock, calibration, pO2 selection, buzzer toggle, MOD unit toggle, and max-clear actions
 - Uses centered OLED layouts and subsetted Adafruit GFX fonts to preserve the condensed UI while reducing flash usage
 - Skips redundant OLED redraws to reduce display flicker and unnecessary work
 
@@ -91,7 +91,7 @@ The Printables model lists these parts for the physical build:
 
 - Tap: lock screen
 - Hold for the menu-entry delay: enter the hold menu at `CAL`
-- Keep holding: cycle through `CAL` -> `PO2` -> `BUZ` -> `MAX` -> normal screen, then repeat
+- Keep holding: cycle through `CAL` -> `PO2` -> `BUZ` -> `MOD` -> `MAX` -> normal screen, then repeat
 - Release while a menu label is shown: run that action
 - Release while the normal screen is shown during the cycle: exit without changing anything
 
@@ -144,6 +144,12 @@ o2-analyzer/
 - [include/settings.h](include/settings.h): firmware configuration constants for pins, timings, display settings, and calibration defaults
 - [.gitignore](.gitignore): ignores PlatformIO build outputs, editor settings, and macOS metadata
 - [hardware/assembly/README.md](hardware/assembly/README.md): assembly image gallery
+- `4` M2x10 mm hex-head screws
+- Molex terminals
+- `9V` battery clip connector
+- `9V` battery
+- Oxygen sensor
+- Hook-up wire and solder
 - [hardware/3d-models](hardware/3d-models): printable enclosure and accessory STL files
 - [platformio.ini](platformio.ini): PlatformIO target, libraries, and build flags
 - [tools/oled_capture.py](tools/oled_capture.py): converts a captured SSD1306 framebuffer dump into a PNG image
@@ -245,6 +251,7 @@ Hardware and behavior settings are defined in [include/settings.h](include/setti
 - `kButtonPin`: button input pin. Default: `2`.
 - `kBuzzerPin`: buzzer output pin. Default: `3`.
 - `kBuzzerEnabledByDefault`: sets whether the buzzer starts enabled after boot. Default: `true`.
+- `kModInFeetByDefault`: sets whether MOD values default to feet instead of meters. Default: `false`.
 - `kSerialBaudRate`: serial monitor and screenshot capture baud rate. Default: `9600`.
 - `kScreenshotCommand`: serial command character used to request a display dump. Default: `s`.
 - `kOledReset`: OLED reset pin passed to the display driver. Default: `4`.

@@ -8,8 +8,8 @@
 
 namespace {
 
-constexpr uint8_t kHoldMenuItemCount = 4;
-constexpr const char *kHoldMenuLabels[kHoldMenuItemCount] = {"CAL", "PO2", "BUZ", "MAX"};
+constexpr uint8_t kHoldMenuItemCount = 5;
+constexpr const char *kHoldMenuLabels[kHoldMenuItemCount] = {"CAL", "PO2", "BUZ", "MOD", "MAX"};
 
 void drawCenteredText(Adafruit_SSD1306 &display, const char *text, int16_t baselineY) {
   int16_t x1 = 0;
@@ -141,7 +141,7 @@ void renderSensorErrorScreen(Adafruit_SSD1306 &display) {
 void renderAnalyzerScreen(Adafruit_SSD1306 &display, const DisplaySnapshot &snapshot) {
   char maxLine[24] = {};
   char po2Line[20] = {};
-  char modLine[16] = {};
+  char modLine[18] = {};
   char resultText[8] = {};
 
   display.clearDisplay();
@@ -185,8 +185,8 @@ void renderAnalyzerScreen(Adafruit_SSD1306 &display, const DisplaySnapshot &snap
   char *modLineEnd = appendTenthsText(modLine, static_cast<uint16_t>(snapshot.modPrimaryTenths));
   modLineEnd = appendText(modLineEnd, "/");
   modLineEnd = appendTenthsText(modLineEnd, static_cast<uint16_t>(snapshot.modSecondaryTenths));
-  appendText(modLineEnd, "M");
-  drawCenteredText(display, modLine, 63);
+  appendText(modLineEnd, snapshot.modInFeet ? "FT" : "M");
+  drawCenteredText(display, modLine, 61);
   display.setFont();
 
   if (snapshot.holdMenu >= 1 && snapshot.holdMenu <= kHoldMenuItemCount) {
@@ -223,6 +223,16 @@ void renderBuzzerScreen(Adafruit_SSD1306 &display, bool buzzerEnabled) {
   display.setTextSize(1);
   drawCenteredText(display, "Buzzer", 22);
   drawCenteredText(display, buzzerEnabled ? "Enabled" : "Disabled", 47);
+  display.display();
+}
+
+void renderModUnitScreen(Adafruit_SSD1306 &display, bool modInFeet) {
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.setFont(&FreeSans9pt7bSubset);
+  display.setTextSize(1);
+  drawCenteredText(display, "MOD Units", 22);
+  drawCenteredText(display, modInFeet ? "Feet" : "Meters", 47);
   display.display();
 }
 

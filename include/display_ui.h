@@ -6,6 +6,7 @@
 struct DisplaySnapshot {
   bool initialized = false;
   bool sensorError = false;
+  bool modInFeet = false;
   int16_t resultTenths = 0;
   int16_t resultMaxTenths = 0;
   int16_t mvHundredths = 0;
@@ -23,4 +24,5 @@ void renderAnalyzerScreen(Adafruit_SSD1306 &display, const DisplaySnapshot &snap
 void renderLockScreen(Adafruit_SSD1306 &display);
 void renderPo2Screen(Adafruit_SSD1306 &display, uint16_t po2Tenths);
 void renderBuzzerScreen(Adafruit_SSD1306 &display, bool buzzerEnabled);
+void renderModUnitScreen(Adafruit_SSD1306 &display, bool modInFeet);
 void renderMaxClearedScreen(Adafruit_SSD1306 &display);

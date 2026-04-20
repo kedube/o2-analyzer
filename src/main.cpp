@@ -40,6 +40,7 @@ struct AnalyzerState {
   float resultMax = 0.0F;
   float maxPo1 = kDefaultMinPo2;
   bool buzzerEnabled = kBuzzerEnabledByDefault;
+  bool modInFeet = kModInFeetByDefault;
   unsigned long millisHeld = 0;
   byte previousButtonState = HIGH;
   unsigned long firstPressTime = 0;
@@ -104,6 +105,7 @@ uint8_t currentHoldMenu();
 void runHoldMenuAction(uint8_t menuIndex);
 void po2_change();
 void buzzer_toggle();
+void mod_unit_toggle();
 void max_clear();
 
 SensorAverage sensorAverage;
@@ -118,14 +120,23 @@ constexpr unsigned long kMenuEntryHoldMs = kMenuEntryHoldSeconds * kMsPerSecond;
 constexpr unsigned long kButtonDebounceMs = 200;
 constexpr unsigned long kUiRefreshIntervalMs = 200;
 constexpr unsigned long kPausePollMs = 10;
-constexpr uint8_t kHoldMenuItemCount = 4;
+constexpr uint8_t kHoldMenuItemCount = 5;
 static_assert(kMenuStepIntervalMs > 0, "kMenuStepIntervalMs must be greater than 0");
 
 /*
  Calculate MOD (Maximum Operating Depth)
 */
-float cal_mod (float percentage, float ppo2 = 1.4) {
-  return 10 * ( (ppo2/(percentage/100)) - 1 );
+float calculateModDepth(float percentage, float ppo2 = 1.4F) {
+  if (percentage <= 0.0F) {
+    return 0.0F;
+  }
+
+  const float depthMeters = 10.0F * ((ppo2 / (percentage / 100.0F)) - 1.0F);
+  if (!state.modInFeet) {
+    return depthMeters;
+  }
+
+  return depthMeters * kFeetPerMeter;
 }
 
 void beep(int x=1) { // make beep for x time
@@ -217,6 +228,8 @@ void runHoldMenuAction(uint8_t menuIndex) {
   } else if (menuIndex == 3) {
     buzzer_toggle();
   } else if (menuIndex == 4) {
+    mod_unit_toggle();
+  } else if (menuIndex == 5) {
     max_clear();
   }
 }
@@ -250,19 +263,24 @@ bool readCalibration(float &value) {
 
 void setup(void) {
   Serial.begin(kSerialBaudRate);
+  Serial.println(F("BOOT: serial"));
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if(!display.begin(SSD1306_SWITCHCAPVCC, kScreenAddress)) {
+    Serial.println(F("BOOT: oled fail"));
     for(;;); // Don't proceed, loop forever
   }
+  Serial.println(F("BOOT: oled ok"));
 
   renderStartupScreen(display, VERSION);
+  Serial.println(F("BOOT: startup shown"));
   invalidateDisplaySnapshot();
 
   delay(2000); // Pause for 2 seconds
 
   ads.setGain(GAIN_TWO);
   ads.begin(); // ads1115 start
+  Serial.println(F("BOOT: ads ok"));
 
   pinMode(kButtonPin,INPUT_PULLUP);
 
@@ -270,12 +288,18 @@ void setup(void) {
   for(int cx=0; cx< kRaSize; cx++) {
      readSensor();
   }
+  Serial.println(F("BOOT: warmup ok"));
 
   if (!readCalibration(state.calibrationValue)) {
+    Serial.println(F("BOOT: calibrating"));
     state.calibrationValue = calibrate();
+    Serial.println(F("BOOT: calibration done"));
+  } else {
+    Serial.println(F("BOOT: calibration loaded"));
   }
 
   beep(1);
+  Serial.println(F("BOOT: ready"));
 }
 
 int calibrate() {
@@ -329,6 +353,7 @@ void analyze() {
   snapshot.resultTenths = roundToTenths(result);
   snapshot.mvHundredths = roundToHundredths(mv);
   snapshot.maxPo1Tenths = roundToTenths(state.maxPo1);
+  snapshot.modInFeet = state.modInFeet;
   snapshot.blinkVisible = (state.activeFrames % 4) != 0;
   snapshot.holdMenu = currentHoldMenu();
 
@@ -347,8 +372,8 @@ void analyze() {
     }
 
     snapshot.resultMaxTenths = roundToTenths(state.resultMax);
-    snapshot.modPrimaryTenths = roundToTenths(cal_mod(result, state.maxPo1));
-    snapshot.modSecondaryTenths = roundToTenths(cal_mod(result, kDefaultMaxPo2));
+    snapshot.modPrimaryTenths = roundToTenths(calculateModDepth(result, state.maxPo1));
+    snapshot.modSecondaryTenths = roundToTenths(calculateModDepth(result, kDefaultMaxPo2));
 
     if (lastDisplaySnapshot.initialized &&
         !lastDisplaySnapshot.sensorError &&
@@ -356,6 +381,7 @@ void analyze() {
         lastDisplaySnapshot.resultMaxTenths == snapshot.resultMaxTenths &&
         lastDisplaySnapshot.mvHundredths == snapshot.mvHundredths &&
         lastDisplaySnapshot.maxPo1Tenths == snapshot.maxPo1Tenths &&
+      lastDisplaySnapshot.modInFeet == snapshot.modInFeet &&
         lastDisplaySnapshot.modPrimaryTenths == snapshot.modPrimaryTenths &&
         lastDisplaySnapshot.modSecondaryTenths == snapshot.modSecondaryTenths &&
         lastDisplaySnapshot.blinkVisible == snapshot.blinkVisible &&
@@ -403,6 +429,16 @@ void buzzer_toggle() {
     beep(1);
   }
 
+  pauseWithPolling(kStatusScreenMs);
+  invalidateDisplaySnapshot();
+  state.activeFrames = 0;
+}
+
+void mod_unit_toggle() {
+  state.modInFeet = !state.modInFeet;
+
+  renderModUnitScreen(display, state.modInFeet);
+  beep(1);
   pauseWithPolling(kStatusScreenMs);
   invalidateDisplaySnapshot();
   state.activeFrames = 0;
