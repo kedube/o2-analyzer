@@ -164,7 +164,7 @@ void renderAnalyzerScreen(Adafruit_SSD1306 &display, const DisplaySnapshot &snap
   drawCenteredText(display, maxLine, 31);
 
   if (snapshot.blinkVisible) {
-    display.setCursor(118, 10);
+    display.setCursor(122, 10);
     display.setTextColor(WHITE);
     display.print(F("."));
   }
