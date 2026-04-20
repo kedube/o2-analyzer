@@ -17,6 +17,8 @@ struct DisplaySnapshot {
   uint8_t holdMenu = 0;
 };
 
+int16_t roundToTenths(float value);
+
 void renderStartupScreen(Adafruit_SSD1306 &display, const char *version);
 void renderCalibrationScreen(Adafruit_SSD1306 &display);
 void renderSensorErrorScreen(Adafruit_SSD1306 &display);

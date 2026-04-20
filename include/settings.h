@@ -17,6 +17,7 @@ constexpr uint8_t kScreenAddress = 0x3C;
 constexpr uint8_t kButtonPin = 2;
 constexpr uint8_t kBuzzerPin = 3;
 constexpr bool kBuzzerEnabledByDefault = true;
+constexpr bool kBootDebugLogging = false;
 constexpr unsigned long kSerialBaudRate = 9600;
 constexpr char kScreenshotCommand = 's';
 

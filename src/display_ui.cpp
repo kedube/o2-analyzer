@@ -10,7 +10,7 @@ namespace {
 
 constexpr uint8_t kHoldMenuItemCount = 5;
 constexpr const char *kHoldMenuLabels[kHoldMenuItemCount] = {
-  "CAL", "PO2", "BUZ", "MOD", "MAX"};
+    "CAL", "PO2", "BUZ", "MOD", "MAX"};
 
 void drawCenteredText(Adafruit_SSD1306 &display, const char *text, int16_t baselineY) {
   int16_t x1 = 0;
@@ -98,11 +98,6 @@ void formatHundredthsText(uint16_t value, char *buffer, const char *prefix = nul
   *buffer = '\0';
 }
 
-int16_t roundToTenths(float value) {
-  const float scaled = value * 10.0F;
-  return static_cast<int16_t>(scaled >= 0.0F ? scaled + 0.5F : scaled - 0.5F);
-}
-
 }  // namespace
 
 void renderStartupScreen(Adafruit_SSD1306 &display, const char *version) {
@@ -176,20 +171,20 @@ void renderAnalyzerScreen(Adafruit_SSD1306 &display, const DisplaySnapshot &snap
 
   display.setTextColor(WHITE);
   char *po2LineEnd = appendText(po2Line, "pO2 ");
-    po2LineEnd =
+  po2LineEnd =
       appendTenthsText(po2LineEnd, static_cast<uint16_t>(snapshot.maxPo1Tenths));
   po2LineEnd = appendText(po2LineEnd, "/");
-    po2LineEnd = appendTenthsText(
+  po2LineEnd = appendTenthsText(
       po2LineEnd, static_cast<uint16_t>(roundToTenths(kDefaultMaxPo2)));
   appendText(po2LineEnd, " MOD");
   drawCenteredText(display, po2Line, 40);
 
   display.setFont(&FreeSans9pt7bSubset);
   display.setTextSize(1);
-    char *modLineEnd =
+  char *modLineEnd =
       appendTenthsText(modLine, static_cast<uint16_t>(snapshot.modPrimaryTenths));
   modLineEnd = appendText(modLineEnd, "/");
-    modLineEnd =
+  modLineEnd =
       appendTenthsText(modLineEnd, static_cast<uint16_t>(snapshot.modSecondaryTenths));
   appendText(modLineEnd, snapshot.modInFeet ? "FT" : "M");
   drawCenteredText(display, modLine, 61);

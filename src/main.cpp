@@ -37,6 +37,7 @@ struct CalibrationData {
 
 struct AnalyzerState {
   float calibrationValue = 0.0F;
+  float calibrationScale = 0.0F;
   float resultMax = 0.0F;
   float maxPo1 = kDefaultMinPo2;
   bool buzzerEnabled = kBuzzerEnabledByDefault;
@@ -98,6 +99,8 @@ void analyze();
 void invalidateDisplaySnapshot();
 void handleSerialCommands();
 void dumpDisplayBuffer();
+void logBootMessage(const __FlashStringHelper *message);
+void updateCalibrationScale(float calibrationValue);
 int16_t roundToTenths(float value);
 int16_t roundToHundredths(float value);
 uint8_t menuIndexForHoldDuration(unsigned long heldDurationMs);
@@ -157,6 +160,14 @@ void pauseWithPolling(unsigned long durationMs) {
     handleSerialCommands();
     delay(kPausePollMs);
   }
+}
+
+void logBootMessage(const __FlashStringHelper *message) {
+  if (!kBootDebugLogging) {
+    return;
+  }
+
+  Serial.println(message);
 }
 
 void dumpDisplayBuffer() {
@@ -248,6 +259,14 @@ void writeCalibration(uint16_t value) {
   }
 }
 
+void updateCalibrationScale(float calibrationValue) {
+  state.calibrationValue = calibrationValue;
+  state.calibrationScale =
+      isCalibrationValid(calibrationValue)
+          ? static_cast<float>(kAirCalibrationPercent) / calibrationValue
+          : 0.0F;
+}
+
 bool readCalibration(float &value) {
   CalibrationData data = {};
   uint8_t *raw = reinterpret_cast<uint8_t *>(&data);
@@ -265,25 +284,25 @@ bool readCalibration(float &value) {
 
 void setup(void) {
   Serial.begin(kSerialBaudRate);
-  Serial.println(F("BOOT: serial"));
+  logBootMessage(F("BOOT: serial"));
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if (!display.begin(SSD1306_SWITCHCAPVCC, kScreenAddress)) {
-    Serial.println(F("BOOT: oled fail"));
+    logBootMessage(F("BOOT: oled fail"));
     for (;;) {
     }  // Don't proceed, loop forever
   }
-  Serial.println(F("BOOT: oled ok"));
+  logBootMessage(F("BOOT: oled ok"));
 
   renderStartupScreen(display, VERSION);
-  Serial.println(F("BOOT: startup shown"));
+  logBootMessage(F("BOOT: startup shown"));
   invalidateDisplaySnapshot();
 
   delay(2000); // Pause for 2 seconds
 
   ads.setGain(GAIN_TWO);
   ads.begin(); // ads1115 start
-  Serial.println(F("BOOT: ads ok"));
+  logBootMessage(F("BOOT: ads ok"));
 
   pinMode(kButtonPin, INPUT_PULLUP);
 
@@ -291,18 +310,19 @@ void setup(void) {
   for (int cx = 0; cx < kRaSize; cx++) {
     readSensor();
   }
-  Serial.println(F("BOOT: warmup ok"));
+  logBootMessage(F("BOOT: warmup ok"));
 
   if (!readCalibration(state.calibrationValue)) {
-    Serial.println(F("BOOT: calibrating"));
-    state.calibrationValue = calibrate();
-    Serial.println(F("BOOT: calibration done"));
+    logBootMessage(F("BOOT: calibrating"));
+    updateCalibrationScale(calibrate());
+    logBootMessage(F("BOOT: calibration done"));
   } else {
-    Serial.println(F("BOOT: calibration loaded"));
+    updateCalibrationScale(state.calibrationValue);
+    logBootMessage(F("BOOT: calibration loaded"));
   }
 
   beep(1);
-  Serial.println(F("BOOT: ready"));
+  logBootMessage(F("BOOT: ready"));
 }
 
 int calibrate() {
@@ -323,6 +343,7 @@ int calibrate() {
     result = kMaxValidCalibration;
   }
   writeCalibration(static_cast<uint16_t>(result));
+  updateCalibrationScale(result);
 
   beep(1);
   pauseWithPolling(kStatusScreenMs);
@@ -344,10 +365,10 @@ void analyze() {
   }
   mv = currentmv * kAdsMultiplier;
 
-  if (!isCalibrationValid(state.calibrationValue) || mv < kMinValidMillivolts) {
+  if (state.calibrationScale <= 0.0F || mv < kMinValidMillivolts) {
     result = 0;
   } else {
-    result = (currentmv / state.calibrationValue) * kAirCalibrationPercent;
+    result = currentmv * state.calibrationScale;
   }
   if (result > 99.9F) {
     result = 99.9F;
