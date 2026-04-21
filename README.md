@@ -2,7 +2,7 @@
 
 PlatformIO firmware for an Arduino-based nitrox / oxygen analyzer with a 128x64 SSD1306 OLED, ADS1115 ADC, buzzer feedback, EEPROM-backed calibration, and a single-button UI.
 
-This firmware accompanies the OLED-modified Divetech nitrox analyzer enclosure published on Printables by Katherine Dube and is intended to build cleanly in Visual Studio Code with current PlatformIO and Adafruit libraries.
+This firmware accompanies the Divetech nitrox analyzer enclosure designed by Tony Land and is intended to build cleanly in Visual Studio Code with current PlatformIO and Adafruit libraries.
 
 ## Images
 
@@ -64,16 +64,14 @@ The original ejlabs notes also caution that a `9V` battery is a poor long-term p
 
 The printable enclosure is based on Tony Land's Divetech nitrox analyzer housing and was remixed to fit commonly available `0.96"` `128x64` OLED modules whose display glass is larger than the original front-panel cutout.
 
-The STL files are published on Printables:
+The STL files are available from:
 
-- [Divetech nitrox analyzer STL files](https://www.printables.com/model/554448-oled-modification-for-divetech-nitrox-analyzer)
+- GitHub: [hardware/3d-models](hardware/3d-models)
+- Printables: [Divetech nitrox analyzer enclosure](https://www.printables.com/model/554448-oled-modification-for-divetech-nitrox-analyzer)
 
-The Printables model page also includes the other enclosure files for convenience, along with links to the original housing and archived background references.
+Assembly Photos:
 
-Local hardware references in this repository:
-
-- [hardware/assembly/README.md](hardware/assembly/README.md): assembly photo gallery
-- [hardware/3d-models](hardware/3d-models): local STL files for the enclosure and accessories
+- [hardware/assembly/README.md](hardware/assembly/README.md)
 
 ## Bill Of Materials
 
