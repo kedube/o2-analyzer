@@ -62,7 +62,7 @@ The original ejlabs notes also caution that a `9V` battery is a poor long-term p
 
 ## Enclosure And 3D Files
 
-The printable enclosure is based on Tony Land's Divetech nitrox analyzer housing and was remixed to fit commonly available `0.96"` `128x64` OLED modules whose display glass is larger than the original front-panel cutout.
+The printable enclosure is based on [Tony Land's Divetech nitrox analyzer housing](https://web.archive.org/web/20240414033725/https://www.divetech.com/post/the-20-nitrox-analyzer) and was remixed to fit commonly available `0.96"` `128x64` OLED modules whose display glass is larger than the original front-panel cutout.
 
 The STL files are available from:
 
