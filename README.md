@@ -1,6 +1,6 @@
 # O2 Analyzer Firmware
 
-PlatformIO firmware for an Arduino-based nitrox / oxygen analyzer with a 128x64 SSD1306 OLED, ADS1115 ADC, buzzer feedback, EEPROM-backed calibration, and a single-button UI.
+PlatformIO firmware for an Arduino-based nitrox / oxygen analyzer with a 128x64 SSD1306 OLED, ADS1115 ADC, buzzer feedback, EEPROM-backed calibration, and a single-button UI. The code is originally based on [Eunjae Im's OLED nitrox analyzer project](http://ejlabs.net/arduino-oled-nitrox-analyzer). 
 
 This firmware accompanies the Divetech nitrox analyzer enclosure designed by Tony Land and is intended to build cleanly in Visual Studio Code with current PlatformIO and Adafruit libraries.
 
