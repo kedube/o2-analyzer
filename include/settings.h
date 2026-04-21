@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-#define VERSION "V0.4"
+#define VERSION "V1.0"
 
 constexpr uint8_t kCalibrationMagic = 0xA5;
 constexpr int kCalibrationAddress = 0;
