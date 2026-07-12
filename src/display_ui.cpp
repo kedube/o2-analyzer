@@ -27,6 +27,8 @@ namespace {
 constexpr uint8_t kHoldMenuItemCount = 5;
 constexpr const char *kHoldMenuLabels[kHoldMenuItemCount] = {
     "CAL", "PO2", "BUZ", "MOD", "MAX"};
+constexpr uint16_t kDefaultMaxPo2Tenths =
+    static_cast<uint16_t>(kDefaultMaxPo2 * 10.0F + 0.5F);
 
 void drawCenteredText(Adafruit_SSD1306 &display, const char *text, int16_t baselineY) {
   int16_t x1 = 0;
@@ -190,8 +192,7 @@ void renderAnalyzerScreen(Adafruit_SSD1306 &display, const DisplaySnapshot &snap
   po2LineEnd =
       appendTenthsText(po2LineEnd, static_cast<uint16_t>(snapshot.maxPo1Tenths));
   po2LineEnd = appendText(po2LineEnd, "/");
-  po2LineEnd = appendTenthsText(
-      po2LineEnd, static_cast<uint16_t>(roundToTenths(kDefaultMaxPo2)));
+  po2LineEnd = appendTenthsText(po2LineEnd, kDefaultMaxPo2Tenths);
   appendText(po2LineEnd, " MOD");
   drawCenteredText(display, po2Line, 40);
 
@@ -250,6 +251,39 @@ void renderModUnitScreen(Adafruit_SSD1306 &display, bool modInFeet) {
   display.setTextSize(1);
   drawCenteredText(display, "MOD Units", 22);
   drawCenteredText(display, modInFeet ? "Feet" : "Meters", 47);
+  display.display();
+}
+
+void renderPowerOffWarningScreen(Adafruit_SSD1306 &display, uint8_t secondsLeft) {
+  char countText[8] = {};
+
+  display.clearDisplay();
+  // Built-in font: the subset FreeSans fonts lack several glyphs used here.
+  display.setFont();
+  display.setTextColor(WHITE);
+  display.setTextSize(2);
+  drawCenteredText(display, "AUTO OFF", 8);
+
+  display.setTextSize(1);
+  char *countEnd = appendText(countText, "in ");
+  if (secondsLeft >= 10) {
+    *countEnd++ = static_cast<char>('0' + (secondsLeft / 10) % 10);
+  }
+  *countEnd++ = static_cast<char>('0' + secondsLeft % 10);
+  *countEnd = '\0';
+  appendText(countEnd, "s");
+  drawCenteredText(display, countText, 34);
+  drawCenteredText(display, "press to stay on", 48);
+  display.display();
+}
+
+void renderAutoOffScreen(Adafruit_SSD1306 &display) {
+  display.clearDisplay();
+  // Built-in font: the subset FreeSans fonts lack the glyphs for "OFF".
+  display.setFont();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  drawCenteredText(display, "AUTO OFF", 24);
   display.display();
 }
 

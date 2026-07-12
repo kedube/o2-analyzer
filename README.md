@@ -29,10 +29,11 @@ The current project target is an Arduino Nano ATmega328P with the new bootloader
 - Reads the oxygen sensor through an ADS1115 differential input
 - Smooths sensor readings with a lightweight local moving average
 - Displays live O2 percentage, max reading, sensor millivolts, and MOD values
-- Stores calibration data in EEPROM so it survives power cycles
+- Stores calibration data and user settings (buzzer, pO2 selection, MOD units) in EEPROM so they survive power cycles
 - Uses a single button hold-menu for lock, calibration, pO2 selection, buzzer toggle, MOD unit toggle, and max-clear actions
 - Uses centered OLED layouts and subsetted Adafruit GFX fonts to preserve the condensed UI while reducing flash usage
 - Skips redundant OLED redraws to reduce display flicker and unnecessary work
+- Powers itself down after 5 minutes of inactivity, with a 10-second cancellable on-screen warning; a button press wakes it straight back to the live reading
 
 ## Hardware
 
@@ -98,6 +99,9 @@ The Printables model lists these materials for the physical build, with example 
 - Keep holding: cycle through `CAL` -> `PO2` -> `BUZ` -> `MOD` -> `MAX` -> normal screen, then repeat
 - Release while a menu label is shown: run that action
 - Release while the normal screen is shown during the cycle: exit without changing anything
+- Hold for `1` second while powering on: reset the saved settings (buzzer, pO2, MOD units) to defaults; calibration is kept. Waking from auto power-off never triggers this reset.
+- Press during the auto power-off countdown: cancel the shutdown and stay on
+- Press after auto power-off: wake the analyzer; it skips the splash screen and returns straight to the live reading
 
 ## Project Layout
 
@@ -162,7 +166,7 @@ default_envs = nano
 
 [env]
 framework = arduino
-monitor_speed = 9600
+monitor_speed = 57600
 upload_speed = 115200
 build_flags =
   -D SSD1306_NO_SPLASH
@@ -214,7 +218,7 @@ After the folder is open in VS Code:
 2. Under `PROJECT TASKS` > `nano`, run `Build`.
 3. Connect the Arduino Nano over USB.
 4. Run `Upload` to flash the firmware.
-5. Run `Monitor` to open the serial console at `9600` baud.
+5. Run `Monitor` to open the serial console at `57600` baud.
 
 PlatformIO uses the default `nano` environment defined in [platformio.ini](platformio.ini).
 
@@ -228,7 +232,7 @@ Common options you may want to change in [platformio.ini](platformio.ini):
 
 - `default_envs`: selects the default build target. The current default is `nano`.
 - `board`: selects the Arduino board definition. The current board is `nanoatmega328new`.
-- `monitor_speed`: sets the serial monitor baud rate. The firmware uses `9600`.
+- `monitor_speed`: sets the serial monitor baud rate. The firmware uses `57600`.
 - `upload_speed`: sets the upload baud rate. The current value is `115200`.
 - `upload_port`: optional manual serial port override if auto-detection fails.
 - `build_flags`: compile-time defines passed to the build. `SSD1306_NO_SPLASH` is enabled to save flash.
@@ -251,21 +255,29 @@ Hardware and behavior settings are defined in [include/settings.h](include/setti
 - `kScreenAddress`: I2C address for the SSD1306 display. Default: `0x3C`.
 - `kButtonPin`: button input pin. Default: `2`.
 - `kBuzzerPin`: buzzer output pin. Default: `3`.
-- `kBuzzerEnabledByDefault`: sets whether the buzzer starts enabled after boot. Default: `true`.
+- `kBuzzerEnabledByDefault`: sets whether the buzzer starts enabled on first boot, before a saved setting exists. Default: `true`.
 - `kBootDebugLogging`: enables verbose startup logging over serial for boot diagnostics. Default: `false`.
-- `kModInFeetByDefault`: sets whether MOD values default to feet instead of meters. Default: `true`.
-- `kSerialBaudRate`: serial monitor and screenshot capture baud rate. Default: `9600`.
+- `kModInFeetByDefault`: sets whether MOD values default to feet instead of meters on first boot, before a saved setting exists. Default: `true`.
+- `kSerialBaudRate`: serial monitor and screenshot capture baud rate. Default: `57600`.
 - `kScreenshotCommand`: serial command character used to request a display dump. Default: `s`.
 - `kOledReset`: OLED reset pin passed to the display driver. Default: `4`.
 - `kRaSize`: moving-average sample window for sensor smoothing. Default: `20`.
+- `kSensorSampleIntervalMs`: how often a new sensor sample is added to the moving average. Default: `50` ms.
 - `kMenuEntryHoldSeconds`: button hold time before the menu appears. Default: `2` seconds.
 - `kMenuStepIntervalMs`: time each menu slot stays active before advancing to the next label or back to the normal screen. Default: `1100` ms.
 - `kStatusScreenMs`: how long temporary status screens remain visible. Default: `1200` ms.
 - `kLockScreenMs`: lock-screen display duration. Default: `5000` ms.
+- `kSplashScreenMs`: startup splash screen duration. Default: `1200` ms.
+- `kAutoPowerOffMs`: inactivity time before the analyzer powers itself down. Default: `5` minutes.
+- `kPowerOffWarningSeconds`: countdown length of the cancellable auto power-off warning screen. Default: `10` seconds.
+- `kActivityDeltaTenths`: O2 change (in tenths of a percent) that counts as activity and defers auto power-off. Default: `3` (0.3%).
 - `kAirCalibrationPercent`: oxygen percentage used for air calibration. Default: `20.9`.
-- `kDefaultMinPo2`: default selected working pO2 at startup. Default: `1.40`.
+- `kDefaultMinPo2`: selected working pO2 on first boot, before a saved setting exists. Default: `1.40`.
 - `kDefaultMaxPo2`: default maximum pO2 used in MOD calculations. Default: `1.60`.
 - `kMinValidCalibration` and `kMaxValidCalibration`: accepted calibration range guardrails.
+- `kCalibrationAddress` and `kSettingsAddress`: EEPROM byte offsets of the calibration record and the persisted user-settings record (buzzer, pO2, MOD units). Each record is validated with its own magic byte (`kCalibrationMagic`, `kSettingsMagic`).
+- `kWakeMarkerAddress`: EEPROM byte flagging the next reboot as an auto power-off wake, so the held wake press is not mistaken for a settings reset.
+- `kSettingsResetHoldMs`: how long the button must be held during power-on to reset the saved settings. Default: `1000` ms.
 
 Change these only if your hardware wiring, display address, or operating assumptions differ from the current build.
 
@@ -288,7 +300,7 @@ If PlatformIO does not auto-detect the serial port on your machine, add `upload_
 ## Serial Monitor
 
 ```sh
-platformio device monitor --baud 9600
+platformio device monitor --baud 57600
 ```
 
 ## Display Screenshot Utility
@@ -301,7 +313,7 @@ It accepts any of these inputs:
 - An ASCII hex dump containing the same `1024` bytes.
 - A serial frame with the header `OLED_FRAME 128 64` followed by `1024` raw bytes.
 
-The firmware supports live screenshot capture over USB serial. It listens at `9600` baud and sends the current OLED framebuffer when it receives the `s` command.
+The firmware supports live screenshot capture over USB serial. It listens at `57600` baud and sends the current OLED framebuffer when it receives the `s` command.
 
 Convert a saved raw framebuffer dump into a PNG:
 
@@ -344,11 +356,20 @@ Core Arduino libraries used directly by the firmware:
 - If saved calibration data is missing or invalid, the firmware forces a new calibration during startup.
 - The firmware constrains calibration input to a sane range before saving it.
 
+## Erasing The EEPROM
+
+The firmware only uses two small EEPROM records plus a wake-marker byte (calibration at bytes `0-2`, user settings at bytes `8-10`, wake marker at byte `12`), and the records can be refreshed without an erase: hold the button for `1` second during power-on to reset settings, and run `CAL` from the hold menu to overwrite calibration. For a full wipe, upload a temporary sketch that writes `0xFF` to all `1024` bytes, then re-upload the analyzer firmware. Note that `avrdude` cannot touch EEPROM over plain USB serial because the optiboot bootloader does not support it; direct EEPROM access requires an ISP programmer.
+
 ## Firmware Notes
 
 - The splash bitmap in Adafruit SSD1306 is disabled at build time to save flash.
 - The small and large UI fonts are subsetted to only the glyphs used by the analyzer screens.
 - Display updates are cached so unchanged frames are not redrawn.
+- Buzzer, pO2 selection, and MOD unit preferences are written to EEPROM when changed from the hold menu and restored at boot. Holding the button for `1` second during power-on resets them to defaults without touching calibration.
+- Sensor samples are collected every `50` ms independently of the `200` ms display refresh, so the moving average settles in about one second.
+- The ADS1115 runs in continuous conversion mode, so sensor reads return the latest completed conversion instead of blocking while a new one runs.
+- The main loop puts the CPU into idle sleep between timer ticks to reduce battery drain.
+- After `5` minutes without a button press or a meaningful O2 change, the firmware first shows a beeping `AUTO OFF` countdown for `10` seconds; pressing the button during the countdown cancels the shutdown. If it runs out, the firmware shows `AUTO OFF`, blanks the display, drops the ADS1115 back to its powered-down single-shot mode, and puts the MCU into power-down sleep. Pressing the button wakes it through a watchdog reset; a wake marker in EEPROM makes the wake boot skip the splash screen and return straight to the live reading, and ensures the held wake press is never mistaken for the hold-to-reset-settings gesture. Note the Nano's onboard regulator and power LED still draw a few milliamps, so the rocker switch remains the true off switch; auto power-off is a failsafe for a forgotten unit.
 - Current builds are comfortably within ATmega328P limits.
 
 ## Origin

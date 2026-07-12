@@ -19,12 +19,17 @@
 
 #include <Arduino.h>
 
-#define VERSION "V1.0"
+#define VERSION "V1.2"
 
 constexpr uint8_t kCalibrationMagic = 0xA5;
 constexpr int kCalibrationAddress = 0;
+constexpr uint8_t kSettingsMagic = 0x5A;
+constexpr int kSettingsAddress = 8;
+constexpr uint8_t kWakeMarkerMagic = 0xC3;
+constexpr int kWakeMarkerAddress = 12;
 
 constexpr int kRaSize = 20;
+constexpr unsigned long kSensorSampleIntervalMs = 50;
 
 constexpr int kScreenWidth = 128;
 constexpr int kScreenHeight = 64;
@@ -35,13 +40,18 @@ constexpr uint8_t kButtonPin = 2;
 constexpr uint8_t kBuzzerPin = 3;
 constexpr bool kBuzzerEnabledByDefault = true;
 constexpr bool kBootDebugLogging = false;
-constexpr unsigned long kSerialBaudRate = 9600;
+constexpr unsigned long kSerialBaudRate = 57600;
 constexpr char kScreenshotCommand = 's';
 
 constexpr unsigned long kMenuEntryHoldSeconds = 2;
 constexpr unsigned long kMenuStepIntervalMs = 1100;
 constexpr unsigned long kStatusScreenMs = 1200;
 constexpr unsigned long kLockScreenMs = 5000;
+constexpr unsigned long kSplashScreenMs = 1200;
+constexpr unsigned long kAutoPowerOffMs = 5UL * 60UL * 1000UL;
+constexpr uint8_t kPowerOffWarningSeconds = 10;
+constexpr int16_t kActivityDeltaTenths = 3;
+constexpr unsigned long kSettingsResetHoldMs = 1000;
 constexpr bool kModInFeetByDefault = true;
 
 constexpr double kMinValidCalibration = 100.0;

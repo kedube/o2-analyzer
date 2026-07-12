@@ -17,6 +17,8 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include <avr/sleep.h>
+#include <avr/wdt.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_ADS1X15.h>
@@ -31,6 +33,17 @@ struct CalibrationData {
   uint16_t value;
 };
 
+struct SettingsData {
+  uint8_t magic;
+  uint8_t maxPo1Tenths;
+  uint8_t flags;
+};
+
+constexpr uint8_t kSettingsBuzzerFlag = 0x01;
+constexpr uint8_t kSettingsModInFeetFlag = 0x02;
+constexpr uint8_t kMinPo2Tenths = 13;
+constexpr uint8_t kMaxPo2Tenths = 15;
+
 struct AnalyzerState {
   float calibrationValue = 0.0F;
   float calibrationScale = 0.0F;
@@ -43,6 +56,10 @@ struct AnalyzerState {
   unsigned long firstPressTime = 0;
   int activeFrames = 0;
   unsigned long lastUiRefreshMs = 0;
+  unsigned long lastSensorSampleMs = 0;
+  unsigned long lastActivityMs = 0;
+  int16_t activityResultTenths = 0;
+  bool ignoreHeldButton = false;
 };
 
 struct SensorAverage {
@@ -88,9 +105,17 @@ struct SensorAverage {
 int calibrate();
 bool readCalibration(float &value);
 void writeCalibration(uint16_t value);
+void readSettings();
+void writeSettings();
+void clearSettings();
+bool consumeWakeMarker();
+bool settingsResetRequested();
 bool isCalibrationValid(float value);
 void pauseWithPolling(unsigned long durationMs);
 void readSensor();
+void sampleSensorIfDue();
+void powerDown();
+bool powerOffWarningCancelled();
 void analyze();
 void invalidateDisplaySnapshot();
 void handleSerialCommands();
@@ -119,6 +144,9 @@ constexpr unsigned long kMenuEntryHoldMs = kMenuEntryHoldSeconds * kMsPerSecond;
 constexpr unsigned long kButtonDebounceMs = 200;
 constexpr unsigned long kUiRefreshIntervalMs = 200;
 constexpr unsigned long kPausePollMs = 10;
+// One ADS1115 conversion takes 4ms at 250SPS; spacing warmup reads by a bit
+// more guarantees each read sees a fresh conversion in continuous mode.
+constexpr unsigned long kAdsConversionSpacingMs = 5;
 constexpr uint8_t kHoldMenuItemCount = 5;
 static_assert(kMenuStepIntervalMs > 0, "kMenuStepIntervalMs must be greater than 0");
 
@@ -154,6 +182,7 @@ void pauseWithPolling(unsigned long durationMs) {
   const unsigned long startMs = millis();
   while ((millis() - startMs) < durationMs) {
     handleSerialCommands();
+    sampleSensorIfDue();
     delay(kPausePollMs);
   }
 }
@@ -189,9 +218,17 @@ void handleSerialCommands() {
 }
 
 void readSensor() {
-  int16_t millivolts = 0;
-  millivolts = ads.readADC_Differential_0_1();
-  sensorAverage.addValue(millivolts);
+  // The ADS1115 free-runs in continuous mode; this just fetches the latest
+  // completed conversion instead of blocking on a new one.
+  sensorAverage.addValue(ads.getLastConversionResults());
+}
+
+void sampleSensorIfDue() {
+  const unsigned long now = millis();
+  if ((now - state.lastSensorSampleMs) >= kSensorSampleIntervalMs) {
+    state.lastSensorSampleMs = now;
+    readSensor();
+  }
 }
 
 void invalidateDisplaySnapshot() {
@@ -263,6 +300,57 @@ void updateCalibrationScale(float calibrationValue) {
           : 0.0F;
 }
 
+void writeSettings() {
+  SettingsData data = {kSettingsMagic,
+                       static_cast<uint8_t>(roundToTenths(state.maxPo1)), 0};
+  if (state.buzzerEnabled) {
+    data.flags |= kSettingsBuzzerFlag;
+  }
+  if (state.modInFeet) {
+    data.flags |= kSettingsModInFeetFlag;
+  }
+  EEPROM.put(kSettingsAddress, data);
+}
+
+void readSettings() {
+  SettingsData data = {};
+  EEPROM.get(kSettingsAddress, data);
+  if (data.magic != kSettingsMagic) {
+    logBootMessage(F("BOOT: settings defaults"));
+    return;
+  }
+
+  if (data.maxPo1Tenths >= kMinPo2Tenths && data.maxPo1Tenths <= kMaxPo2Tenths) {
+    state.maxPo1 = static_cast<float>(data.maxPo1Tenths) / 10.0F;
+  }
+  state.buzzerEnabled = (data.flags & kSettingsBuzzerFlag) != 0;
+  state.modInFeet = (data.flags & kSettingsModInFeetFlag) != 0;
+  logBootMessage(F("BOOT: settings loaded"));
+}
+
+void clearSettings() {
+  EEPROM.update(kSettingsAddress, static_cast<uint8_t>(~kSettingsMagic));
+}
+
+bool consumeWakeMarker() {
+  if (EEPROM.read(kWakeMarkerAddress) != kWakeMarkerMagic) {
+    return false;
+  }
+  EEPROM.update(kWakeMarkerAddress, static_cast<uint8_t>(~kWakeMarkerMagic));
+  return true;
+}
+
+bool settingsResetRequested() {
+  const unsigned long startMs = millis();
+  while (digitalRead(kButtonPin) == LOW) {
+    if ((millis() - startMs) >= kSettingsResetHoldMs) {
+      return true;
+    }
+    delay(kPausePollMs);
+  }
+  return false;
+}
+
 bool readCalibration(float &value) {
   CalibrationData data = {};
   uint8_t *raw = reinterpret_cast<uint8_t *>(&data);
@@ -282,6 +370,26 @@ void setup(void) {
   Serial.begin(kSerialBaudRate);
   logBootMessage(F("BOOT: serial"));
 
+  pinMode(kButtonPin, INPUT_PULLUP);
+  pinMode(kBuzzerPin, OUTPUT);
+  digitalWrite(kBuzzerPin, LOW);
+  delay(10);
+
+  // A wake press from auto power-off is still held during this reboot; it
+  // must not be mistaken for the hold-to-reset gesture.
+  const bool wokeFromAutoOff = consumeWakeMarker();
+
+  if (!wokeFromAutoOff && settingsResetRequested()) {
+    // Button held through power-on: factory-reset the saved settings.
+    clearSettings();
+    logBootMessage(F("BOOT: settings reset"));
+    while (digitalRead(kButtonPin) == LOW) {
+      delay(kPausePollMs);
+    }
+  } else {
+    readSettings();
+  }
+
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if (!display.begin(SSD1306_SWITCHCAPVCC, kScreenAddress)) {
     logBootMessage(F("BOOT: oled fail"));
@@ -290,20 +398,22 @@ void setup(void) {
   }
   logBootMessage(F("BOOT: oled ok"));
 
-  renderStartupScreen(display, VERSION);
-  logBootMessage(F("BOOT: startup shown"));
+  if (!wokeFromAutoOff) {
+    renderStartupScreen(display, VERSION);
+    logBootMessage(F("BOOT: startup shown"));
+    delay(kSplashScreenMs);
+  }
   invalidateDisplaySnapshot();
 
-  delay(2000); // Pause for 2 seconds
-
   ads.setGain(GAIN_TWO);
+  ads.setDataRate(RATE_ADS1115_250SPS);
   ads.begin(); // ads1115 start
+  ads.startADCReading(ADS1X15_REG_CONFIG_MUX_DIFF_0_1, /*continuous=*/true);
   logBootMessage(F("BOOT: ads ok"));
-
-  pinMode(kButtonPin, INPUT_PULLUP);
 
   sensorAverage.clear();
   for (int cx = 0; cx < kRaSize; cx++) {
+    delay(kAdsConversionSpacingMs);
     readSensor();
   }
   logBootMessage(F("BOOT: warmup ok"));
@@ -317,6 +427,12 @@ void setup(void) {
     logBootMessage(F("BOOT: calibration loaded"));
   }
 
+  if (wokeFromAutoOff) {
+    // The wake press may still be held; ignore it until released so it does
+    // not register as a new press (which would trigger the lock screen).
+    state.ignoreHeldButton = true;
+  }
+
   beep(1);
   logBootMessage(F("BOOT: ready"));
 }
@@ -327,6 +443,7 @@ int calibrate() {
   sensorAverage.clear();
   float result = 0.0F;
   for (int cx = 0; cx < kRaSize; cx++) {
+    delay(kAdsConversionSpacingMs);
     readSensor();
   }
   result = sensorAverage.average();
@@ -354,7 +471,6 @@ void analyze() {
   float mv = 0.0F;
   DisplaySnapshot snapshot = {};
 
-  readSensor();
   currentmv = sensorAverage.average();
   if (currentmv < 0.0F) {
     currentmv = -currentmv;
@@ -393,6 +509,13 @@ void analyze() {
       state.resultMax = result;
     }
 
+    // A meaningful O2 change means the analyzer is in use; hold off auto power-off.
+    const int16_t activityDelta = snapshot.resultTenths - state.activityResultTenths;
+    if (activityDelta >= kActivityDeltaTenths || activityDelta <= -kActivityDeltaTenths) {
+      state.activityResultTenths = snapshot.resultTenths;
+      state.lastActivityMs = millis();
+    }
+
     snapshot.resultMaxTenths = roundToTenths(state.resultMax);
     snapshot.modPrimaryTenths = roundToTenths(calculateModDepth(result, state.maxPo1));
     snapshot.modSecondaryTenths =
@@ -424,6 +547,7 @@ void lock_screen(unsigned long pause = kLockScreenMs) {
     if (digitalRead(kButtonPin) == LOW) {
       break;
     }
+    sampleSensorIfDue();
     delay(kPausePollMs);
   }
   invalidateDisplaySnapshot();
@@ -436,6 +560,7 @@ void po2_change() {
   state.maxPo1 =
       (t == roundToTenths(1.3F)) ? 1.4F : (t == roundToTenths(1.4F)) ? 1.5F : 1.3F;
   const uint16_t newTenths = static_cast<uint16_t>(roundToTenths(state.maxPo1));
+  writeSettings();
 
   renderPo2Screen(display, newTenths);
   beep(1);
@@ -446,6 +571,7 @@ void po2_change() {
 
 void buzzer_toggle() {
   state.buzzerEnabled = !state.buzzerEnabled;
+  writeSettings();
 
   renderBuzzerScreen(display, state.buzzerEnabled);
 
@@ -460,12 +586,79 @@ void buzzer_toggle() {
 
 void mod_unit_toggle() {
   state.modInFeet = !state.modInFeet;
+  writeSettings();
 
   renderModUnitScreen(display, state.modInFeet);
   beep(1);
   pauseWithPolling(kStatusScreenMs);
   invalidateDisplaySnapshot();
   state.activeFrames = 0;
+}
+
+void onPowerOffWake() {}
+
+bool powerOffWarningCancelled() {
+  for (uint8_t secondsLeft = kPowerOffWarningSeconds; secondsLeft > 0; --secondsLeft) {
+    const unsigned long cycleStartMs = millis();
+    renderPowerOffWarningScreen(display, secondsLeft);
+    if (secondsLeft == kPowerOffWarningSeconds) {
+      beep(1);
+    }
+
+    while ((millis() - cycleStartMs) < kMsPerSecond) {
+      if (digitalRead(kButtonPin) == LOW) {
+        while (digitalRead(kButtonPin) == LOW) {
+          delay(kPausePollMs);
+        }
+        return true;
+      }
+      handleSerialCommands();
+      sampleSensorIfDue();
+      delay(kPausePollMs);
+    }
+  }
+
+  return false;
+}
+
+void powerDown() {
+  if (powerOffWarningCancelled()) {
+    const unsigned long now = millis();
+    state.lastActivityMs = now;
+    state.firstPressTime = now;
+    state.activeFrames = 0;
+    invalidateDisplaySnapshot();
+    return;
+  }
+
+  renderAutoOffScreen(display);
+  beep(2);
+  pauseWithPolling(kStatusScreenMs);
+
+  display.ssd1306_command(SSD1306_DISPLAYOFF);
+  // Drop the ADS1115 back to single-shot; it powers itself down after one
+  // final conversion.
+  ads.startADCReading(ADS1X15_REG_CONFIG_MUX_DIFF_0_1, /*continuous=*/false);
+  // Mark the next reboot as a wake so the held wake press is not treated as
+  // a settings-reset hold.
+  EEPROM.update(kWakeMarkerAddress, kWakeMarkerMagic);
+
+  attachInterrupt(digitalPinToInterrupt(kButtonPin), onPowerOffWake, LOW);
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  noInterrupts();
+  sleep_enable();
+#if defined(BODS) && defined(BODSE)
+  sleep_bod_disable();
+#endif
+  interrupts();
+  sleep_cpu();
+  sleep_disable();
+  detachInterrupt(digitalPinToInterrupt(kButtonPin));
+
+  // Button pressed: reboot through the watchdog for a clean re-init.
+  wdt_enable(WDTO_15MS);
+  for (;;) {
+  }
 }
 
 void max_clear() {
@@ -479,37 +672,63 @@ void max_clear() {
 
 void loop(void) {
   handleSerialCommands();
+  sampleSensorIfDue();
 
   const unsigned long now = millis();
   const int current = digitalRead(kButtonPin);
 
-  if (current == LOW && state.previousButtonState == HIGH &&
-      (now - state.firstPressTime) > kButtonDebounceMs) {
-    state.firstPressTime = now;
-    state.activeFrames = 17;
-  }
-
-  const unsigned long releasedHoldMs = (current == HIGH && state.previousButtonState == LOW)
-                                           ? (now - state.firstPressTime)
-                                           : 0;
-  state.millisHeld = (current == LOW) ? (now - state.firstPressTime) : 0;
-
-  if (releasedHoldMs > 2) {
-    if (releasedHoldMs < kMenuEntryHoldMs) {
-      lock_screen();
-    } else {
-      runHoldMenuAction(menuIndexForHoldDuration(releasedHoldMs));
+  if (state.ignoreHeldButton) {
+    // Consume the still-held wake press from auto power-off; treat the
+    // button as inactive until it has been released once.
+    if (current == HIGH) {
+      state.ignoreHeldButton = false;
+      state.firstPressTime = now;
+      state.lastActivityMs = now;
+    }
+    state.millisHeld = 0;
+    state.previousButtonState = current;
+  } else {
+    if (current == LOW && state.previousButtonState == HIGH &&
+        (now - state.firstPressTime) > kButtonDebounceMs) {
+      state.firstPressTime = now;
+      state.activeFrames = 17;
+      state.lastActivityMs = now;
     }
 
-    state.millisHeld = 0;
-    state.firstPressTime = now;
+    const unsigned long releasedHoldMs =
+        (current == HIGH && state.previousButtonState == LOW)
+            ? (now - state.firstPressTime)
+            : 0;
+    state.millisHeld = (current == LOW) ? (now - state.firstPressTime) : 0;
+
+    if (releasedHoldMs > 2) {
+      state.lastActivityMs = now;
+      if (releasedHoldMs < kMenuEntryHoldMs) {
+        lock_screen();
+      } else {
+        runHoldMenuAction(menuIndexForHoldDuration(releasedHoldMs));
+      }
+
+      state.millisHeld = 0;
+      state.firstPressTime = now;
+    }
+
+    state.previousButtonState = current;
   }
 
-  state.previousButtonState = current;
+  if ((now - state.lastActivityMs) >= kAutoPowerOffMs) {
+    // Shows a cancellable countdown; if not cancelled, sleeps and only
+    // returns via a button-press watchdog reboot.
+    powerDown();
+  }
 
   if ((now - state.lastUiRefreshMs) >= kUiRefreshIntervalMs) {
     state.lastUiRefreshMs = now;
     analyze();
     state.activeFrames++;
   }
+
+  // Idle until the next timer tick (~1ms); millis, serial, and tone keep running.
+  set_sleep_mode(SLEEP_MODE_IDLE);
+  sleep_mode();
 }

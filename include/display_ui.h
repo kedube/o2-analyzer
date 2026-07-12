@@ -17,8 +17,6 @@ struct DisplaySnapshot {
   uint8_t holdMenu = 0;
 };
 
-int16_t roundToTenths(float value);
-
 void renderStartupScreen(Adafruit_SSD1306 &display, const char *version);
 void renderCalibrationScreen(Adafruit_SSD1306 &display);
 void renderSensorErrorScreen(Adafruit_SSD1306 &display);
@@ -27,4 +25,6 @@ void renderLockScreen(Adafruit_SSD1306 &display);
 void renderPo2Screen(Adafruit_SSD1306 &display, uint16_t po2Tenths);
 void renderBuzzerScreen(Adafruit_SSD1306 &display, bool buzzerEnabled);
 void renderModUnitScreen(Adafruit_SSD1306 &display, bool modInFeet);
+void renderPowerOffWarningScreen(Adafruit_SSD1306 &display, uint8_t secondsLeft);
+void renderAutoOffScreen(Adafruit_SSD1306 &display);
 void renderMaxClearedScreen(Adafruit_SSD1306 &display);
